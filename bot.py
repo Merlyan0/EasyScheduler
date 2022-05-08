@@ -8,7 +8,7 @@ from vk_api.bot_longpoll import VkBotLongPoll, VkBotEventType
 from vk_api.keyboard import VkKeyboard, VkKeyboardColor
 from vk_api.utils import get_random_id
 
-from db import db_create, create_connection
+from db import add_to_db, create_connection
 
 token = 'ваш_токен'
 group_id = 'id_сообщества_вк'
