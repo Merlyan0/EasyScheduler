@@ -194,12 +194,12 @@ def analyze_string(starting_text) -> tuple:
                         to_delete.append(i)
 
             # обработка чисел 1-60
-            if temp_list2[i].isdigit() and 1 < int(temp_list2[i]) < 60:
+            if temp_list2[i].isdigit() and 1 <= int(temp_list2[i]) < 60:
 
                 # обработка года
                 if plan[p] == 'year':
 
-                    # вид обрабатываемой строки: {1-60} год
+                    # вид обрабатываемой строки: {1-59} год
                     if i + 1 < len(normal_forms) and normal_forms[i + 1] == 'год':
                         parsed_date.update_year(2000 + int(temp_list2[i]))
                         to_delete.append(i + 1)
