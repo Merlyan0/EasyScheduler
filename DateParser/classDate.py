@@ -3,7 +3,10 @@ from datetime import datetime, timedelta
 
 
 class Date:
-    def __init__(self):
+    """
+    Класс обработанной в алгоритме даты.
+    """
+    def __init__(self) -> None:
         cur_date = self.get_current_date()
         self.year = cur_date.year
         self.month = cur_date.month
@@ -14,10 +17,29 @@ class Date:
         self.changed_date = False
 
     @classmethod
-    def get_current_date(cls):
+    def get_current_date(cls) -> datetime:
+        """
+        Получить текущую дату и время.
+        """
         return datetime.now()
 
-    def update_weekday(self, number: int, day: str):
+    @classmethod
+    def month_plus(cls, date: datetime) -> datetime:
+        """
+        Прибавить к дате 1 месяц.
+        """
+        try:
+            date = date.replace(month=date.month + 1, day=1)
+        except ValueError:
+            date = date.replace(year=date.year + 1, month=1, day=1)
+        return date
+
+    def update_weekday(self, number: int, day: str) -> None:
+        """
+        Изменить день в зависимости от дня недели.
+        :param number: 0: текущая неделя; 1: следующая неделя.
+        :param day: понедельник/вторник...
+        """
         convert_day = {'понедельник': 0,
                        'вторник': 1,
                        'среда': 2,
@@ -40,7 +62,10 @@ class Date:
         self.update_month(compare_date.month)
         self.update_day(compare_date.day)
 
-    def update_month_word(self, month: str):
+    def update_month_word(self, month: str) -> None:
+        """
+        Изменить месяц по его названию в русском языке.
+        """
         convert_month = {'январь': 1,
                          'февраль': 2,
                          'март': 3,
@@ -63,49 +88,71 @@ class Date:
         self.update_month(compare_date.month)
         self.update_day(compare_date.day)
 
-    @classmethod
-    def month_plus(cls, date):
-        try:
-            date = date.replace(month=date.month + 1, day=1)
-        except ValueError:
-            date = date.replace(year=date.year + 1, month=1, day=1)
-        return date
-
-    def after_weeks(self, n):
+    def after_weeks(self, n: int) -> None:
+        """
+        Прибавить n-ное количество недель к дате.
+        """
         compare_date = self.get_datetime()
+
         compare_date = compare_date + timedelta(days=7 * n)
+
         self.update_year(compare_date.year)
         self.update_month(compare_date.month)
         self.update_day(compare_date.day)
 
-    def after_days(self, n):
+    def after_days(self, n: int) -> None:
+        """
+        Прибавить n-ное количество дней к дате.
+        """
         compare_date = self.get_datetime()
+
         compare_date = compare_date + timedelta(days=n)
+
         self.update_year(compare_date.year)
         self.update_month(compare_date.month)
         self.update_day(compare_date.day)
 
-    def update_year(self, year):
+    def update_year(self, year: int) -> None:
+        """
+        Обновить год в дате.
+        """
         self.changed_date = True
         self.year = year
 
-    def update_month(self, month):
+    def update_month(self, month: int) -> None:
+        """
+        Обновить месяц в дате.
+        """
         self.changed_date = True
         self.month = month
 
-    def update_day(self, day):
+    def update_day(self, day: int) -> None:
+        """
+        Обновить день в дате.
+        """
         self.changed_date = True
         self.day = day
 
-    def update_hour(self, hour):
+    def update_hour(self, hour: int) -> None:
+        """
+        Обновить час в дате.
+        """
         self.changed_time = True
         self.hour = hour
 
-    def update_minute(self, minute):
+    def update_minute(self, minute: int) -> None:
+        """
+        Обновить минуты в дате.
+        """
         self.changed_time = True
         self.minute = minute
 
-    def repair_date(self):
+    def repair_date(self) -> None:
+        """
+        Починка даты перед преобразованием в datetime.
+
+        Например, 61 минута преобразовывается в 1 час и 1 минуту и т.п.
+        """
         while self.minute >= 60:
             self.minute -= 60
             self.hour += 1
@@ -122,14 +169,27 @@ class Date:
             self.month -= 12
             self.year += 1
 
-    def get_datetime(self):
+    def get_datetime(self) -> datetime:
+        """
+        Получить текущую дату в формате datetime.
+        """
         self.repair_date()
         return datetime(self.year, self.month, self.day, self.hour, self.minute)
 
-    def get_changed(self):
+    def get_changed(self) -> dict:
+        """
+        Были ли изменения в дате и во времени.
+
+        Словарь вида: {'date': True/False, 'time': True/False}.
+
+        True, если изменения были, False - не было.
+        """
         return {'date': self.changed_date, 'time': self.changed_time}
 
-    def set_default(self):
+    def set_default(self) -> None:
+        """
+        Обнулить дату и время внутри класса.
+        """
         cur_date = self.get_current_date()
         self.year = cur_date.year
         self.month = cur_date.month
