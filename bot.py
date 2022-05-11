@@ -10,7 +10,7 @@ from vk_api.bot_longpoll import VkBotLongPoll, VkBotEventType
 from vk_api.keyboard import VkKeyboard, VkKeyboardColor
 from vk_api.utils import get_random_id
 
-from DateParser_ru.parser import analyze_string
+from DateParser.parser import analyze_string
 
 # работа с базой данных
 from data.scripts.db import create_connection, add_to_db, set_date
