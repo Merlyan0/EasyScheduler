@@ -163,43 +163,6 @@ def analyze_string(starting_text) -> tuple:
                         to_delete.append(i - 1)
                         to_delete.append(i)
 
-            # обработка любых чисел
-            elif temp_list2[i].isdigit():
-
-                # обработка введенного года
-                if plan[p] == 'year':
-                    # вид обрабатываемой строки: {2022 - 2099} год
-                    if 2022 <= int(temp_list2[i]) < 2099 and normal_forms[i + 1] == 'год':
-                        parsed_date.update_year(int(temp_list2[i]))
-                        to_delete.append(i)
-                        if i + 1 < len(normal_forms) and normal_forms[i + 1] == 'год':
-                            to_delete.append(i + 1)
-
-                elif plan[p] == 'relative_date':
-
-                    # вид обрабатываемой строки: через ... недель
-                    if i - 1 != -1 and i + 1 < len(normal_forms) and \
-                            normal_forms[i - 1] == 'через' and normal_forms[i + 1] == 'неделя':
-                        parsed_date.after_weeks(int(temp_list2[i]))
-                        to_delete.append(i - 1)
-                        to_delete.append(i)
-                        to_delete.append(i + 1)
-
-                    # вид обрабатываемой строки: через ... месяцев
-                    elif i - 1 != -1 and i + 1 < len(normal_forms) and \
-                            normal_forms[i - 1] == 'через' and normal_forms[i + 1] == 'месяц':
-                        return 'Ошибка', 'Попробуйте указать явно количество дней ' \
-                                                               '(например, через 30 дней) ' \
-                                                               'или конкретную дату (например, 6 октября).'
-
-                    # вид обрабатываемой строки: через ... дней
-                    elif i - 1 != -1 and i + 1 < len(normal_forms) and \
-                            normal_forms[i - 1] == 'через' and normal_forms[i + 1] == 'день':
-                        parsed_date.after_days(int(temp_list2[i]))
-                        to_delete.append(i - 1)
-                        to_delete.append(i)
-                        to_delete.append(i + 1)
-
             # обработка чисел 1-60
             elif temp_list2[i].isdigit() and 1 <= int(temp_list2[i]) < 60:
 
@@ -293,7 +256,8 @@ def analyze_string(starting_text) -> tuple:
                 elif plan[p] == 'day':
 
                     # вид обрабатываемой строки: {1-31} января|февраля...
-                    if i + 1 < len(normal_forms) and normal_forms[i + 1] in ['январь', 'февраль', 'март', 'апрель',
+                    if i + 1 < len(normal_forms) and normal_forms[i + 1] in ['январь', 'февраль', 'март',
+                                                                             'апрель',
                                                                              'май', 'июнь', 'июль', 'август',
                                                                              'сентябрь', 'октябрь', 'ноябрь',
                                                                              'декабрь']:
@@ -304,6 +268,43 @@ def analyze_string(starting_text) -> tuple:
                     # вид обрабатываемой строки: {1-31} числа
                     elif i + 1 < len(normal_forms) and normal_forms[i + 1] == 'число':
                         parsed_date.update_day(int(temp_list2[i]))
+                        to_delete.append(i)
+                        to_delete.append(i + 1)
+
+            # обработка любых чисел
+            elif temp_list2[i].isdigit():
+
+                # обработка введенного года
+                if plan[p] == 'year':
+                    # вид обрабатываемой строки: {2022 - 2099} год
+                    if 2022 <= int(temp_list2[i]) < 2099 and normal_forms[i + 1] == 'год':
+                        parsed_date.update_year(int(temp_list2[i]))
+                        to_delete.append(i)
+                        if i + 1 < len(normal_forms) and normal_forms[i + 1] == 'год':
+                            to_delete.append(i + 1)
+
+                elif plan[p] == 'relative_date':
+
+                    # вид обрабатываемой строки: через ... недель
+                    if i - 1 != -1 and i + 1 < len(normal_forms) and \
+                            normal_forms[i - 1] == 'через' and normal_forms[i + 1] == 'неделя':
+                        parsed_date.after_weeks(int(temp_list2[i]))
+                        to_delete.append(i - 1)
+                        to_delete.append(i)
+                        to_delete.append(i + 1)
+
+                    # вид обрабатываемой строки: через ... месяцев
+                    elif i - 1 != -1 and i + 1 < len(normal_forms) and \
+                            normal_forms[i - 1] == 'через' and normal_forms[i + 1] == 'месяц':
+                        return 'Ошибка', 'Попробуйте указать явно количество дней ' \
+                                                               '(например, через 30 дней) ' \
+                                                               'или конкретную дату (например, 6 октября).'
+
+                    # вид обрабатываемой строки: через ... дней
+                    elif i - 1 != -1 and i + 1 < len(normal_forms) and \
+                            normal_forms[i - 1] == 'через' and normal_forms[i + 1] == 'день':
+                        parsed_date.after_days(int(temp_list2[i]))
+                        to_delete.append(i - 1)
                         to_delete.append(i)
                         to_delete.append(i + 1)
 
