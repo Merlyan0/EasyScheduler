@@ -51,8 +51,19 @@ for event in longpoll.listen():
             handler.start(event.object.message["peer_id"])
 
         else:
-            if not handler.create_manually(event):
+            # id предыдущего сообщение
+            conv_mess_id = event.object.message["conversation_message_id"] - 1
+            # предыдущее сообщение
+            prev_mess = vk.messages.getByConversationMessageId(peer_id=event.object.message["peer_id"],
+                                                               conversation_message_ids=conv_mess_id)
 
+            if prev_mess['items'][0]['text'] == handler.get_message("MESS_CREATE_REMINDER"):
+                handler.create_manually(event)
+
+            elif prev_mess['items'][0]['text'] == handler.get_message("MESS_CREATE_REMINDER_COMPLETED_1"):
+                handler.create_manually_step2(event)
+
+            else:
                 handler.reminder_analyzer(event)
 
     elif event.type == VkBotEventType.MESSAGE_EVENT:
