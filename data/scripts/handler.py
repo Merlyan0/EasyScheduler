@@ -5,17 +5,17 @@ from vk_api.utils import get_random_id
 
 from DateParser.parser import analyze_string
 from data.scripts import messages
-from data.scripts.db import add_to_db, set_date
 from data.scripts.functions import check_date
 from data.scripts.keyboards import *
 from data.scripts.messages import *
 
 
 class BotHandler:
-    def __init__(self, vk, db_conn, db_cur):
+    def __init__(self, vk, db):
         self.vk = vk
-        self.db_conn = db_conn
-        self.db_cur = db_cur
+        self.db = db
+
+        print('EasyScheduler >', f'Обработчик команд инициализирован.')
 
     def main_menu(self, peer_id):
         """
@@ -71,9 +71,9 @@ class BotHandler:
                                 delete_for_all=True)
 
     def create_manually(self, event):
-        add_to_db(self.db_conn, self.db_cur, title=event.object.message["text"],
-                  author=event.object.message["from_id"],
-                  finished=False, created_date=datetime.now())
+        self.db.add_to_db(title=event.object.message["text"],
+                          author=event.object.message["from_id"],
+                          finished=False, created_date=datetime.now())
 
         self.vk.messages.send(peer_id=event.object.message["peer_id"],
                               message=MESS_CREATE_REMINDER_COMPLETED_1,
@@ -82,9 +82,20 @@ class BotHandler:
     def create_manually_step2(self, event):
         date = event.object.message["text"]
 
-        date = check_date(date)
+        try:
+            date = check_date(date)
 
-        set_date(self.db_conn, self.db_cur, event.object.message['from_id'], date.strftime('%Y-%m-%d %H:%M:%S'))
+            self.db.set_date(event.object.message['from_id'], date.strftime('%Y-%m-%d %H:%M:%S'))
+
+            self.vk.messages.send(peer_id=event.object.message["peer_id"],
+                                  message=MESS_CREATE_REMINDER_COMPLETED_2,
+                                  random_id=get_random_id(),
+                                  keyboard=KB_MAIN_MENU.get_keyboard())
+
+        except BaseException:
+            self.vk.messages.send(peer_id=event.object.message["peer_id"],
+                                  message=MESS_DATE_FORMAT_ERROR,
+                                  random_id=get_random_id())
 
     def reminder_analyzer(self, event):
         a = analyze_string(event.object.message["text"].lower())
@@ -148,7 +159,16 @@ class BotHandler:
                                   message=MESS_REMINDER_RECEIVED.substitute(title=title, time=time),
                                   random_id=get_random_id(),
                                   keyboard=keyboard.get_keyboard())
-    
+
+            self.db.add_to_db(title=title, author=event.object.message["from_id"],
+                              check_date=a[0].strftime('%Y-%m-%d %H:%M:%S'), finished=False)
+
+    def send_reminders(self, date):
+        for i in self.db.get_actual_reminders(date):
+            self.vk.messages.send(user_id=i['author'],
+                                  message=MESS_REMIND.substitute(title=i['title']),
+                                  random_id=get_random_id())
+
     @classmethod
     def get_message(cls, message):
         return getattr(messages, message)
