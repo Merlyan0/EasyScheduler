@@ -1,5 +1,7 @@
 import pymorphy2
 
+# TODO: МЕНЯТЬ МЕСТАМИ IF
+
 from DateParser.classDate import Date
 
 # знаки пунктуации
@@ -157,129 +159,24 @@ def analyze_string(starting_text) -> tuple:
                     elif i - 1 != -1 and normal_forms[i - 1] == 'в':
                         number = 0
 
+                    # обновление даты
                     if number != -1 and normal_forms[i] in ['понедельник', 'вторник', 'среда', 'четверг',
                                                             'пятница', 'суббота', 'воскресенье']:
                         parsed_date.update_weekday(number, normal_forms[i])
                         to_delete.append(i - 1)
                         to_delete.append(i)
 
-            # обработка чисел 1-60
-            elif temp_list2[i].isdigit() and 1 <= int(temp_list2[i]) < 60:
-
-                # обработка года
-                if plan[p] == 'year':
-
-                    # вид обрабатываемой строки: {1-59} год
-                    if i + 1 < len(normal_forms) and normal_forms[i + 1] == 'год':
-                        parsed_date.update_year(2000 + int(temp_list2[i]))
-                        to_delete.append(i + 1)
-                        to_delete.append(i)
-
-                # обработка времени
-                elif plan[p] == 'time':
-
-                    # вид обрабатываемой строки: в {1-23} часов
-                    if i - 1 != -1 and i + 1 < len(normal_forms) and normal_forms[i - 1] == 'в' \
-                            and normal_forms[i + 1] == 'час':
-
-                        if not 1 <= int(temp_list2[i]) <= 23:
-                            return 'Ошибка', 'Вы ввели час, равный числу, большему 23.'
-
-                        parsed_date.update_hour(int(temp_list2[i]))
-                        to_delete.append(i - 1)
-                        to_delete.append(i)
-                        to_delete.append(i + 1)
-
-                    # вид обрабатываемой строки: в {1-12} вечера
-                    elif i - 1 != -1 and i + 1 < len(normal_forms) and normal_forms[i - 1] == 'в' \
-                            and normal_forms[i + 1] == 'вечер':
-
-                        if not 1 <= int(temp_list2[i]) <= 12:
-                            return 'Ошибка', 'Вы ввели час во второй половине дня, равный числу, большему 12.'
-
-                        parsed_date.update_hour(12 + int(temp_list2[i]))
-                        to_delete.append(i - 1)
-                        to_delete.append(i)
-                        to_delete.append(i + 1)
-
-                    # вид обрабатываемой строки: в {1-12} утра
-                    elif i - 1 != -1 and i + 1 < len(normal_forms) and normal_forms[i - 1] == 'в' \
-                            and normal_forms[i + 1] == 'утро':
-
-                        if not 1 <= int(temp_list2[i]) <= 12:
-                            return 'Ошибка', 'Вы ввели час в первой половине дня, равный числу, большему 12.'
-
-                        parsed_date.update_hour(int(temp_list2[i]))
-                        to_delete.append(i - 1)
-                        to_delete.append(i)
-                        to_delete.append(i + 1)
-
-                    # вид обрабатываемой строки: через {1-59} минут
-                    elif i - 1 != -1 and i + 1 < len(normal_forms) and normal_forms[i - 1] == 'через' and \
-                            normal_forms[i + 1] == 'минута':
-                        parsed_date.update_minute(parsed_date.get_current_date().minute + int(temp_list2[i]))
-                        parsed_date.update_hour(parsed_date.get_current_date().hour)
-                        to_delete.append(i - 1)
-                        to_delete.append(i)
-                        to_delete.append(i + 1)
-
-                    # вид обрабатываемой строки: через {1-23} час(-а)
-                    elif i - 1 != -1 and i + 1 < len(normal_forms) and normal_forms[i - 1] == 'через' and \
-                            normal_forms[i + 1] == 'час':
-
-                        if not 1 <= int(temp_list2[i]) <= 23:
-                            return 'Ошибка', 'Вы ввели час, равный числу, большему 23.'
-
-                        parsed_date.update_minute(parsed_date.get_current_date().minute)
-                        parsed_date.update_hour(parsed_date.get_current_date().hour + int(temp_list2[i]))
-                        to_delete.append(i - 1)
-                        to_delete.append(i)
-                        to_delete.append(i + 1)
-
-                    # вид обрабатываемой строки: {1-59} минут
-                    elif i + 1 < len(normal_forms) and normal_forms[i + 1] == 'минута':
-                        parsed_date.update_minute(int(temp_list2[i]))
-                        to_delete.append(i)
-                        to_delete.append(i + 1)
-
-                    # вид обрабатываемой строки: в {1-23}
-                    elif i - 1 != -1 and normal_forms[i - 1] == 'в':
-
-                        if not 1 <= int(temp_list2[i]) <= 23:
-                            return 'Ошибка', 'Вы ввели час, равный числу, большему 23.'
-
-                        parsed_date.update_hour(int(temp_list2[i]))
-                        to_delete.append(i)
-                        to_delete.append(i - 1)
-
-                # обработка дня
-                elif plan[p] == 'day':
-
-                    # вид обрабатываемой строки: {1-31} января|февраля...
-                    if i + 1 < len(normal_forms) and normal_forms[i + 1] in ['январь', 'февраль', 'март',
-                                                                             'апрель',
-                                                                             'май', 'июнь', 'июль', 'август',
-                                                                             'сентябрь', 'октябрь', 'ноябрь',
-                                                                             'декабрь']:
-                        parsed_date.update_day(int(temp_list2[i]))
-                        to_delete.append(i)
-                        to_delete.append(i + 1)
-
-                    # вид обрабатываемой строки: {1-31} числа
-                    elif i + 1 < len(normal_forms) and normal_forms[i + 1] == 'число':
-                        parsed_date.update_day(int(temp_list2[i]))
-                        to_delete.append(i)
-                        to_delete.append(i + 1)
-
-            # обработка любых чисел
+            # обработка чисел
             elif temp_list2[i].isdigit():
 
                 # обработка введенного года
                 if plan[p] == 'year':
+
                     # вид обрабатываемой строки: {2022 - 2099} год
                     if 2022 <= int(temp_list2[i]) < 2099 and normal_forms[i + 1] == 'год':
                         parsed_date.update_year(int(temp_list2[i]))
                         to_delete.append(i)
+
                         if i + 1 < len(normal_forms) and normal_forms[i + 1] == 'год':
                             to_delete.append(i + 1)
 
@@ -297,8 +194,8 @@ def analyze_string(starting_text) -> tuple:
                     elif i - 1 != -1 and i + 1 < len(normal_forms) and \
                             normal_forms[i - 1] == 'через' and normal_forms[i + 1] == 'месяц':
                         return 'Ошибка', 'Попробуйте указать явно количество дней ' \
-                                                               '(например, через 30 дней) ' \
-                                                               'или конкретную дату (например, 6 октября).'
+                                         '(например, через 30 дней) ' \
+                                         'или конкретную дату (например, 6 октября).'
 
                     # вид обрабатываемой строки: через ... дней
                     elif i - 1 != -1 and i + 1 < len(normal_forms) and \
@@ -308,6 +205,114 @@ def analyze_string(starting_text) -> tuple:
                         to_delete.append(i)
                         to_delete.append(i + 1)
 
+                # числа от 1 до 60
+                if 1 <= int(temp_list2[i]) <= 60:
+
+                    # обработка года
+                    if plan[p] == 'year':
+
+                        # вид обрабатываемой строки: {1-60} год
+                        if i + 1 < len(normal_forms) and normal_forms[i + 1] == 'год':
+                            parsed_date.update_year(2000 + int(temp_list2[i]))
+                            to_delete.append(i + 1)
+                            to_delete.append(i)
+
+                    # обработка времени
+                    elif plan[p] == 'time':
+
+                        # вид обрабатываемой строки: в {1-23} часов
+                        if i - 1 != -1 and i + 1 < len(normal_forms) and normal_forms[i - 1] == 'в' \
+                                and normal_forms[i + 1] == 'час':
+
+                            if not 1 <= int(temp_list2[i]) <= 23:
+                                return 'Ошибка', 'Вы ввели час, равный числу, большему 23.'
+
+                            parsed_date.update_hour(int(temp_list2[i]))
+                            to_delete.append(i - 1)
+                            to_delete.append(i)
+                            to_delete.append(i + 1)
+
+                        # вид обрабатываемой строки: в {1-12} вечера
+                        elif i - 1 != -1 and i + 1 < len(normal_forms) and normal_forms[i - 1] == 'в' \
+                                and normal_forms[i + 1] == 'вечер':
+
+                            if not 1 <= int(temp_list2[i]) <= 12:
+                                return 'Ошибка', 'Вы ввели час во второй половине дня, равный числу, большему 12.'
+
+                            parsed_date.update_hour(12 + int(temp_list2[i]))
+                            to_delete.append(i - 1)
+                            to_delete.append(i)
+                            to_delete.append(i + 1)
+
+                        # вид обрабатываемой строки: в {1-12} утра
+                        elif i - 1 != -1 and i + 1 < len(normal_forms) and normal_forms[i - 1] == 'в' \
+                                and normal_forms[i + 1] == 'утро':
+
+                            if not 1 <= int(temp_list2[i]) <= 12:
+                                return 'Ошибка', 'Вы ввели час в первой половине дня, равный числу, большему 12.'
+
+                            parsed_date.update_hour(int(temp_list2[i]))
+                            to_delete.append(i - 1)
+                            to_delete.append(i)
+                            to_delete.append(i + 1)
+
+                        # вид обрабатываемой строки: через {1-60} минут
+                        elif i - 1 != -1 and i + 1 < len(normal_forms) and normal_forms[i - 1] == 'через' and \
+                                normal_forms[i + 1] == 'минута':
+                            parsed_date.update_minute(parsed_date.get_current_date().minute + int(temp_list2[i]))
+                            parsed_date.update_hour(parsed_date.get_current_date().hour)
+                            to_delete.append(i - 1)
+                            to_delete.append(i)
+                            to_delete.append(i + 1)
+
+                        # вид обрабатываемой строки: через {1-23} час(-а)
+                        elif i - 1 != -1 and i + 1 < len(normal_forms) and normal_forms[i - 1] == 'через' and \
+                                normal_forms[i + 1] == 'час':
+
+                            if not 1 <= int(temp_list2[i]) <= 23:
+                                return 'Ошибка', 'Вы ввели час, равный числу, большему 23.'
+
+                            parsed_date.update_minute(parsed_date.get_current_date().minute)
+                            parsed_date.update_hour(parsed_date.get_current_date().hour + int(temp_list2[i]))
+                            to_delete.append(i - 1)
+                            to_delete.append(i)
+                            to_delete.append(i + 1)
+
+                        # вид обрабатываемой строки: {1-60} минут
+                        elif i + 1 < len(normal_forms) and normal_forms[i + 1] == 'минута':
+                            parsed_date.update_minute(int(temp_list2[i]))
+                            to_delete.append(i)
+                            to_delete.append(i + 1)
+
+                        # вид обрабатываемой строки: в {1-23}
+                        elif i - 1 != -1 and normal_forms[i - 1] == 'в':
+
+                            if not 1 <= int(temp_list2[i]) <= 23:
+                                return 'Ошибка', 'Вы ввели час, равный числу, большему 23.'
+
+                            parsed_date.update_hour(int(temp_list2[i]))
+                            to_delete.append(i)
+                            to_delete.append(i - 1)
+
+                    # обработка дня
+                    elif plan[p] == 'day':
+
+                        # вид обрабатываемой строки: {1-31} января|февраля...
+                        if i + 1 < len(normal_forms) and normal_forms[i + 1] in ['январь', 'февраль', 'март',
+                                                                                 'апрель',
+                                                                                 'май', 'июнь', 'июль', 'август',
+                                                                                 'сентябрь', 'октябрь', 'ноябрь',
+                                                                                 'декабрь']:
+                            parsed_date.update_day(int(temp_list2[i]))
+                            to_delete.append(i)
+                            to_delete.append(i + 1)
+
+                        # вид обрабатываемой строки: {1-31} числа
+                        elif i + 1 < len(normal_forms) and normal_forms[i + 1] == 'число':
+                            parsed_date.update_day(int(temp_list2[i]))
+                            to_delete.append(i)
+                            to_delete.append(i + 1)
+
             # вид обрабатываемой строки: (в) 12:34
             elif len(temp_list2[i].split(':')) == 2:
                 parsed_date.update_hour(int(temp_list2[i].split(':')[0]))
@@ -316,8 +321,10 @@ def analyze_string(starting_text) -> tuple:
                 if i - 1 != -1 and normal_forms[i - 1] == 'в':
                     to_delete.append(i - 1)
 
-    # запись всего, что осталось в финальный список
+    # напоминание
     finished_list = list()
+
+    # запись самого напоминания
     for i in range(len(temp_list2)):
         if i not in to_delete:
             finished_list.append(temp_list2[i])
