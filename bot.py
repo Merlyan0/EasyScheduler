@@ -1,4 +1,7 @@
 # прочее
+import threading
+import time
+from datetime import datetime
 from pprint import pprint
 
 # VK API
@@ -6,7 +9,7 @@ import vk_api
 from vk_api.bot_longpoll import VkBotLongPoll, VkBotEventType
 
 # работа с базой данных
-from data.scripts.db import create_connection
+from data.scripts.db import DataBase
 
 # обработчик команд
 from data.scripts.handler import BotHandler
@@ -21,12 +24,24 @@ vk = vk_session.get_api()
 longpoll = VkBotLongPoll(vk_session, GROUP_ID)
 
 # подключение к базе данных
-__temp = create_connection()
-db_conn = __temp[0]
-db_cur = __temp[1]
+db = DataBase()
 
 # экземляр обработчика команд
-handler = BotHandler(vk, db_conn, db_cur)
+handler = BotHandler(vk, db)
+
+
+def every_minute():
+    while datetime.now().second != 0:
+        time.sleep(1)
+
+    threading.Timer(60.0, every_minute).start()
+
+    handler.send_reminders(datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+
+
+# отправка подошедших по времени напоминаний
+every_minute()
+
 
 # все приходящие с сервера события
 for event in longpoll.listen():
