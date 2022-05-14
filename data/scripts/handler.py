@@ -11,49 +11,87 @@ from data.scripts.messages import *
 
 
 class BotHandler:
-    def __init__(self, vk, db):
+
+    def __init__(self, vk, db) -> None:
+        """
+        Обработчик различных команд бота.
+        :vk: VkApiMethod
+        :db: DataBase class
+        """
         self.vk = vk
         self.db = db
 
-        print('EasyScheduler >', f'Обработчик команд инициализирован.')
-
-    def main_menu(self, peer_id):
+    def main_menu(self, peer_id: int) -> None:
         """
-        Функция для отрисовки главного меню бота.
+        Работа главного меню.
         """
         self.vk.messages.send(peer_id=peer_id,
                               message=MESS_MAIN_MENU,
                               random_id=get_random_id(),
                               keyboard=KB_MAIN_MENU.get_keyboard())
 
-    def settings(self, peer_id):
+    def settings(self, peer_id: int) -> None:
         """
-        Функция для отрисовки настроек бота.
+        Работа настроек.
         """
         self.vk.messages.send(peer_id=peer_id,
                               message=MESS_SETTINGS,
                               random_id=get_random_id(),
                               keyboard=KB_BACK.get_keyboard())
 
-    def create_reminder(self, peer_id):
+    def create_manually_step1(self, peer_id: int) -> None:
         """
-        Функция для создания напоминания в боте.
+        Создание напоминания вручную: первое сообщение.
         """
         self.vk.messages.send(peer_id=peer_id,
                               message=MESS_CREATE_REMINDER,
                               random_id=get_random_id(),
                               keyboard=KB_BACK.get_keyboard())
 
-    def start(self, peer_id):
+    def create_manually_step2(self, event) -> None:
+        """
+        Создание напоминания вручную: введено название напоминания.
+        """
+        self.db.add_to_db(title=event.object.message["text"],
+                          author=event.object.message["from_id"],
+                          finished=False, created_date=datetime.now())
+
+        self.vk.messages.send(peer_id=event.object.message["peer_id"],
+                              message=MESS_CREATE_REMINDER_COMPLETED_1,
+                              random_id=get_random_id())
+
+    def create_manually_step3(self, event) -> None:
+        """
+        Создание напоминания вручную: введена дата.
+        """
+        date = event.object.message["text"]
+
+        try:
+            date = check_date(date)
+
+            self.db.set_date(event.object.message['from_id'], date.strftime('%Y-%m-%d %H:%M:%S'))
+
+            self.vk.messages.send(peer_id=event.object.message["peer_id"],
+                                  message=MESS_CREATE_REMINDER_COMPLETED_2,
+                                  random_id=get_random_id(),
+                                  keyboard=KB_MAIN_MENU.get_keyboard())
+
+        except (BaseException, ):
+            self.main_menu(event.object.message['peer_id'])
+
+    def start(self, peer_id: int) -> None:
         """
         Функция, приветствующая пользователя при начале общения.
         """
         self.vk.messages.send(peer_id=peer_id,
-                              message=MESS_CREATE_REMINDER,
+                              message=MESS_WELCOME,
                               random_id=get_random_id(),
-                              keyboard=KB_BACK.get_keyboard())
+                              keyboard=KB_MAIN_MENU.get_keyboard())
 
-    def confirm_info(self, event):
+    def confirm_info(self, event) -> None:
+        """
+        Подтвердить информацию о правильно распознанном напоминании.
+        """
         title = event.object.payload.get("title")
         time = event.object.payload.get("time")
 
@@ -70,34 +108,10 @@ class BotHandler:
         self.vk.messages.delete(message_ids=event.object.conversation_message_id,
                                 delete_for_all=True)
 
-    def create_manually(self, event):
-        self.db.add_to_db(title=event.object.message["text"],
-                          author=event.object.message["from_id"],
-                          finished=False, created_date=datetime.now())
-
-        self.vk.messages.send(peer_id=event.object.message["peer_id"],
-                              message=MESS_CREATE_REMINDER_COMPLETED_1,
-                              random_id=get_random_id())
-
-    def create_manually_step2(self, event):
-        date = event.object.message["text"]
-
-        try:
-            date = check_date(date)
-
-            self.db.set_date(event.object.message['from_id'], date.strftime('%Y-%m-%d %H:%M:%S'))
-
-            self.vk.messages.send(peer_id=event.object.message["peer_id"],
-                                  message=MESS_CREATE_REMINDER_COMPLETED_2,
-                                  random_id=get_random_id(),
-                                  keyboard=KB_MAIN_MENU.get_keyboard())
-
-        except BaseException:
-            self.vk.messages.send(peer_id=event.object.message["peer_id"],
-                                  message=MESS_DATE_FORMAT_ERROR,
-                                  random_id=get_random_id())
-
-    def reminder_analyzer(self, event):
+    def reminder_analyzer(self, event) -> None:
+        """
+        Проанализировать строку на предмет налиичия напоминания.
+        """
         a = analyze_string(event.object.message["text"].lower())
 
         # DateParser вернул сообщение об ошибке
@@ -163,12 +177,18 @@ class BotHandler:
             self.db.add_to_db(title=title, author=event.object.message["from_id"],
                               check_date=a[0].strftime('%Y-%m-%d %H:%M:%S'), finished=False)
 
-    def send_reminders(self, date):
+    def send_reminders(self, date: str) -> None:
+        """
+        Отправить все подошедшие по времени напоминания.
+        """
         for i in self.db.get_actual_reminders(date):
             self.vk.messages.send(user_id=i['author'],
                                   message=MESS_REMIND.substitute(title=i['title']),
                                   random_id=get_random_id())
 
     @classmethod
-    def get_message(cls, message):
+    def get_message(cls, message: str) -> str:
+        """
+        Получить сообщение по названию переменной.
+        """
         return getattr(messages, message)
