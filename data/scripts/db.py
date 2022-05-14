@@ -43,7 +43,7 @@ class DataBase:
         print('EasyScheduler >', f'Подключение к базе данных {DB_DATABASE} успешно.')
 
     def add_to_db(self, title=None, author=None, attachments=None,
-                  check_date=None, finished=None, created_date=datetime.now()) -> None:
+                  check_date=None, need_notification=True, finished=False, created_date=datetime.now()) -> None:
         """
         Добавление нового значения в базу данных.
         """
@@ -54,13 +54,16 @@ class DataBase:
                              author,
                              attachments,
                              check_date,
+                             need_notification,
                              finished,
                              created_date)
-               VALUES (%s, %s, %s, %s, %s, %s);""", (title, author, attachments, check_date, finished, created_date))
+               VALUES (%s, %s, %s, %s, %s, %s, %s);""", (title, author, attachments, check_date,
+                                                         need_notification, finished, created_date))
         self.conn.commit()
 
     def get_actual_reminders(self, date):
-        self.cur.execute(f"SELECT * FROM reminders WHERE finished=0 and check_date=%s", (date, ))
+        self.cur.execute(f"SELECT * FROM reminders WHERE finished=0 and check_date=%s and need_notification=1",
+                         (date,))
         return self.cur.fetchall()
 
     def set_date(self, author, date) -> None:
