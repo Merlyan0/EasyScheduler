@@ -5,7 +5,7 @@ import pymorphy2
 from DateParser.classDate import Date
 
 # знаки пунктуации
-punctuation = ['.', ',', ';', ':', '?', '!', '-', '(', ')', '"', '\'']
+punctuation = ('.', ',', ';', ':', '?', '!', '-', '(', ')', '"', '\'')
 
 # слова-спутники даты
 token_words = ['год',
@@ -61,18 +61,16 @@ def analyze_string(starting_text) -> tuple:
 
     # удаление знаков препинания с конца слов
     for i in start_list:
-        for j in punctuation:
-            while i.endswith(j):
-                i = i[:-1]
-            i = i.lower()
+        while i.endswith(punctuation):
+            i = i[:-1]
+        i = i.lower()
         temp_list1.append(i)
 
     # удаление знаков препинания с начала слов
     for i in temp_list1:
-        for j in punctuation:
-            while i.startswith(j):
-                i = i[1:]
-            i = i.lower()
+        while i.startswith(punctuation):
+            i = i[1:]
+        i = i.lower()
         temp_list2.append(i)
 
     # список слов в начальной форме
