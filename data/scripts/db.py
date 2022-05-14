@@ -1,6 +1,7 @@
 from datetime import datetime
 
 import pymysql
+from emoji import is_emoji
 from pymysql.cursors import DictCursor
 
 from config import *
@@ -31,6 +32,7 @@ class DataBase:
                          author int,                     
                          attachments text,
                          check_date datetime,
+                         need_notification bool,
                          finished bool,
                         created_date datetime);""")
         self.conn.commit()
@@ -45,6 +47,8 @@ class DataBase:
         """
         Добавление нового значения в базу данных.
         """
+        title = ''.join([i.encode('unicode-escape').decode('utf-8') if is_emoji(i) else i for i in title])
+
         self.cur.execute(f"""INSERT INTO reminders(
                              title,
                              author,
@@ -52,8 +56,7 @@ class DataBase:
                              check_date,
                              finished,
                              created_date)
-               VALUES (%s, %s, %s, %s, %s, %s);""", (title.encode("unicode-escape"), author, attachments,
-                                                     check_date, finished, created_date))
+               VALUES (%s, %s, %s, %s, %s, %s);""", (title, author, attachments, check_date, finished, created_date))
         self.conn.commit()
 
     def get_actual_reminders(self, date):
