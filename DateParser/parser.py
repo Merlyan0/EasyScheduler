@@ -1,7 +1,5 @@
 import pymorphy2
 
-# TODO: МЕНЯТЬ МЕСТАМИ IF
-
 from DateParser.classDate import Date
 
 # знаки пунктуации
@@ -34,7 +32,9 @@ token_words = ['год',
                'вечер', 'вечером',
                'ночь',
                'половина',
-               'четверть']
+               'четверть',
+
+               'полночь']
 
 # слова прошедшего времени
 past_words = ['назад', 'прошлый', 'прошедший', 'предыдущий', 'вчера', 'позавчера']
@@ -161,6 +161,16 @@ def analyze_string(starting_text) -> tuple:
                     if number != -1 and normal_forms[i] in ['понедельник', 'вторник', 'среда', 'четверг',
                                                             'пятница', 'суббота', 'воскресенье']:
                         parsed_date.update_weekday(number, normal_forms[i])
+                        to_delete.append(i - 1)
+                        to_delete.append(i)
+
+                # обработка времени в словесном формате без чисел (в полночь, в час...)
+                elif plan[p] == 'time':
+
+                    # вид обрабатываемой строки: в полночь
+                    if i - 1 != -1 and normal_forms[i - 1] == 'в' and normal_forms[i] == 'полночь':
+                        parsed_date.update_hour(0)
+                        parsed_date.update_minute(0)
                         to_delete.append(i - 1)
                         to_delete.append(i)
 
