@@ -34,7 +34,7 @@ class DataBase:
                          check_date datetime,
                          need_notification bool,
                          finished bool,
-                        created_date datetime);""")
+                         created_date datetime);""")
         self.conn.commit()
 
         self.cur.execute('ALTER TABLE reminders CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_bin')
@@ -42,8 +42,8 @@ class DataBase:
 
         print('EasyScheduler >', f'Подключение к базе данных {DB_DATABASE} успешно.')
 
-    def add_to_db(self, title=None, author=None, attachments=None,
-                  check_date=None, need_notification=True, finished=False, created_date=datetime.now()) -> None:
+    def add_to_db(self, title=None, author=None, attachments=None, check_date=None, need_notification=True,
+                  finished=False, created_date=datetime.now()) -> None:
         """
         Добавление нового значения в базу данных.
         """
@@ -61,12 +61,20 @@ class DataBase:
                                                          need_notification, finished, created_date))
         self.conn.commit()
 
-    def get_actual_reminders(self, date):
+    def get_actual_reminders(self, date_and_time: str) -> tuple:
         self.cur.execute(f"SELECT * FROM reminders WHERE finished=0 and check_date=%s and need_notification=1",
-                         (date,))
+                         (date_and_time,))
+
         return self.cur.fetchall()
 
-    def set_date(self, author, date) -> None:
+    def get_author_reminders(self, author: int, date: datetime):
+        self.cur.execute(f"""SELECT * FROM reminders WHERE finished=0 and check_date
+                         >=%s AND check_date <=%s and author=%s""",
+                         (date.strftime('%Y-%m-%d 00:00:00'), date.strftime('%Y-%m-%d 23:59:59'), author))
+
+        return self.cur.fetchall()
+
+    def set_date(self, author: int, date: str) -> None:
         """
         Задание даты для последнего напоминания пользователя.
         """
