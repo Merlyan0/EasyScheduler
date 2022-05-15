@@ -1,4 +1,4 @@
-import json
+import operator
 from datetime import datetime
 
 from vk_api.utils import get_random_id
@@ -21,6 +21,15 @@ class BotHandler:
         self.vk = vk
         self.db = db
 
+    def start(self, peer_id: int) -> None:
+        """
+        Функция, приветствующая пользователя при начале общения.
+        """
+        self.vk.messages.send(peer_id=peer_id,
+                              message=MESS_WELCOME,
+                              random_id=get_random_id(),
+                              keyboard=KB_MAIN_MENU.get_keyboard())
+
     def main_menu(self, peer_id: int) -> None:
         """
         Работа главного меню.
@@ -34,6 +43,18 @@ class BotHandler:
         """
         Работа настроек.
         """
+        self.vk.messages.send(peer_id=peer_id,
+                              message=MESS_SETTINGS,
+                              random_id=get_random_id(),
+                              keyboard=KB_BACK.get_keyboard())
+
+    def timetable(self, peer_id: int, date: datetime) -> None:
+        """
+        Вывод расписание какого-либо пользователя.
+        """
+        a = self.db.get_author_reminders(peer_id, date)
+        a.sort(key=operator.itemgetter('check_date'))
+        
         self.vk.messages.send(peer_id=peer_id,
                               message=MESS_SETTINGS,
                               random_id=get_random_id(),
@@ -58,7 +79,8 @@ class BotHandler:
 
         self.vk.messages.send(peer_id=event.object.message["peer_id"],
                               message=MESS_CREATE_REMINDER_COMPLETED_1,
-                              random_id=get_random_id())
+                              random_id=get_random_id(),
+                              keyboard=KB_MAIN_MENU.get_keyboard())
 
     def create_manually_step3(self, event) -> None:
         """
@@ -79,103 +101,62 @@ class BotHandler:
         except (BaseException, ):
             self.main_menu(event.object.message['peer_id'])
 
-    def start(self, peer_id: int) -> None:
-        """
-        Функция, приветствующая пользователя при начале общения.
-        """
-        self.vk.messages.send(peer_id=peer_id,
-                              message=MESS_WELCOME,
-                              random_id=get_random_id(),
-                              keyboard=KB_MAIN_MENU.get_keyboard())
-
-    def confirm_info(self, event) -> None:
-        """
-        Подтвердить информацию о правильно распознанном напоминании.
-        """
-        title = event.object.payload.get("title")
-        time = event.object.payload.get("time")
-
-        self.vk.messages.sendMessageEventAnswer(
-            event_id=event.object.event_id,
-            user_id=event.object.user_id,
-            peer_id=event.object.peer_id,
-            event_data=json.dumps({"type": "show_snackbar", "text": "Напоминание создано."}))
-
-        self.vk.messages.send(peer_id=event.object.peer_id,
-                              message=MESS_REMINDER_CONFIRMED.substitute(title=title, time=time),
-                              random_id=get_random_id())
-
-        self.vk.messages.delete(message_ids=event.object.conversation_message_id,
-                                delete_for_all=True)
-
     def reminder_analyzer(self, event) -> None:
         """
         Проанализировать строку на предмет налиичия напоминания.
         """
+        need_add = True
+        title = ''
+        need_notification = True
+
         a = analyze_string(event.object.message["text"].lower())
 
         # DateParser вернул сообщение об ошибке
         if a[0] == 'Ошибка':
             self.vk.messages.send(peer_id=event.object.message["peer_id"],
-                                  message=f"&#10060; {a[0]} \n\n"
-                                          f"{a[1]}",
-                                  random_id=get_random_id())
+                                  message=f"&#10060; {a[0]} \n\n{a[1]}",
+                                  random_id=get_random_id(),
+                                  keyboard=KB_MAIN_MENU.get_keyboard())
+
+            need_add = False
 
         # DateParser не нашел даты и времени в сообщении
         elif a[2]['date'] is False and a[2]['time'] is False:
             title = ' '.join(a[1]).capitalize()
 
-            keyboard = VkKeyboard(one_time=False, inline=True)
-            keyboard.add_callback_button(
-                label="Подтвердить",
-                color=VkKeyboardColor.POSITIVE,
-                payload={"type": "confirm", "title": f"{title}",
-                         "time": f"{a[0].strftime('%d.%m.%Y в %H:%M')}"},
-            )
-
             self.vk.messages.send(peer_id=event.object.message["peer_id"],
-                                  message=MESS_REMINDER_RECEIVED_NO_DATA.substitute(title=title),
+                                  message=MESS_REMINDER_RECEIVED_NO_DATE.substitute(title=title),
                                   random_id=get_random_id(),
-                                  keyboard=keyboard.get_keyboard())
+                                  keyboard=KB_MAIN_MENU.get_keyboard())
+
+            need_notification = False
 
         # DateParser не нашел времени в сообщении
         elif a[2]['time'] is False:
             title = ' '.join(a[1]).capitalize()
-            date = a[0].strftime('%d.%m.%Y')
-
-            keyboard = VkKeyboard(one_time=False, inline=True)
-            keyboard.add_callback_button(
-                label="Подтвердить",
-                color=VkKeyboardColor.POSITIVE,
-                payload={"type": "confirm", "title": f"{title}",
-                         "time": f"{date}"},
-            )
+            time = a[0].strftime('%d.%m.%Y')
 
             self.vk.messages.send(peer_id=event.object.message["peer_id"],
-                                  message=MESS_REMINDER_RECEIVED_NO_TIME.substitute(title=title, time=date),
+                                  message=MESS_REMINDER_RECEIVED_NO_TIME.substitute(title=title, time=time),
                                   random_id=get_random_id(),
-                                  keyboard=keyboard.get_keyboard())
+                                  keyboard=KB_MAIN_MENU.get_keyboard())
+
+            need_notification = False
 
         # DateParser обнаружил всё необходимое
         else:
             title = ' '.join(a[1]).capitalize()
             time = a[0].strftime('%d.%m.%Y в %H:%M')
 
-            keyboard = VkKeyboard(one_time=False, inline=True)
-            keyboard.add_callback_button(
-                label="Подтвердить",
-                color=VkKeyboardColor.POSITIVE,
-                payload={"type": "confirm", "title": f"{title}",
-                         "time": f"{time}"}
-            )
-
             self.vk.messages.send(peer_id=event.object.message["peer_id"],
                                   message=MESS_REMINDER_RECEIVED.substitute(title=title, time=time),
                                   random_id=get_random_id(),
-                                  keyboard=keyboard.get_keyboard())
+                                  keyboard=KB_MAIN_MENU.get_keyboard())
 
+        if need_add:
             self.db.add_to_db(title=title, author=event.object.message["from_id"],
-                              check_date=a[0].strftime('%Y-%m-%d %H:%M:%S'), finished=False)
+                              check_date=a[0].strftime('%Y-%m-%d %H:%M:%S'), need_notification=need_notification,
+                              finished=False)
 
     def send_reminders(self, date: str) -> None:
         """
@@ -183,8 +164,9 @@ class BotHandler:
         """
         for i in self.db.get_actual_reminders(date):
             self.vk.messages.send(user_id=i['author'],
-                                  message=MESS_REMIND.substitute(title=i['title']),
-                                  random_id=get_random_id())
+                                  message=MESS_REMIND.substitute(title=i['title'].encode().decode('utf-8')),
+                                  random_id=get_random_id(),
+                                  keyboard=KB_MAIN_MENU.get_keyboard())
 
     @classmethod
     def get_message(cls, message: str) -> str:
