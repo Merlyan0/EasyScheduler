@@ -48,17 +48,55 @@ class BotHandler:
                               random_id=get_random_id(),
                               keyboard=KB_BACK.get_keyboard())
 
+    def finish_step1(self, peer_id: int) -> None:
+        """
+        Отметить напоминания завершённым: шаг 1
+        """
+        a = self.db.get_author_reminders(peer_id)
+
+        if a != ():
+            a.sort(key=operator.itemgetter('check_date'))
+            all_r, n = list(), 0
+
+            for i in a:
+                n += 1
+                title = i['title'].encode('unicode-escape').replace(b'\\\\', b'\\').decode('unicode-escape')
+
+                all_r.append(str(n) + '. ' + title + i['check_date'].strftime(' // %d.%m.%Y | %H:%M') + ' \n')
+
+            self.vk.messages.send(peer_id=peer_id,
+                                  message=MESS_ALL_REMINDERS.substitute(all_r=''.join(all_r)),
+                                  random_id=get_random_id(),
+                                  keyboard=KB_MAIN_MENU.get_keyboard())
+
     def timetable(self, peer_id: int, date: datetime) -> None:
         """
         Вывод расписание какого-либо пользователя.
         """
-        a = self.db.get_author_reminders(peer_id, date)
-        a.sort(key=operator.itemgetter('check_date'))
-        
-        self.vk.messages.send(peer_id=peer_id,
-                              message=MESS_SETTINGS,
-                              random_id=get_random_id(),
-                              keyboard=KB_BACK.get_keyboard())
+        a = self.db.get_author_date_reminders(peer_id, date)
+
+        if a != ():
+            a.sort(key=operator.itemgetter('check_date'))
+            general, with_time = list(), list()
+
+            for i in a:
+                title = i['title'].encode('unicode-escape').replace(b'\\\\', b'\\').decode('unicode-escape')
+
+                if i['need_notification'] == 0 and i['check_date'].strftime('%H:%M') == '00:00':
+                    general.append('-  "' + title + '" \n')
+                else:
+                    with_time.append('-  "' + title + '"' + i['check_date'].strftime(' // %H:%M') + ' \n')
+
+            self.vk.messages.send(peer_id=peer_id,
+                                  message=MESS_TIMETABLE.substitute(general=''.join(general),
+                                                                    with_time=''.join(with_time)),
+                                  random_id=get_random_id(),
+                                  keyboard=KB_MAIN_MENU.get_keyboard())
+        else:
+            self.vk.messages.send(peer_id=peer_id,
+                                  message=MESS_NO_REMINDERS,
+                                  random_id=get_random_id(),
+                                  keyboard=KB_MAIN_MENU.get_keyboard())
 
     def create_manually_step1(self, peer_id: int) -> None:
         """
@@ -99,7 +137,7 @@ class BotHandler:
                                   keyboard=KB_MAIN_MENU.get_keyboard())
 
         except (BaseException, ):
-            self.main_menu(event.object.message['peer_id'])
+            self.reminder_analyzer(event)
 
     def reminder_analyzer(self, event) -> None:
         """
@@ -163,8 +201,10 @@ class BotHandler:
         Отправить все подошедшие по времени напоминания.
         """
         for i in self.db.get_actual_reminders(date):
+            title = i['title'].encode('unicode-escape').replace(b'\\\\', b'\\').decode('unicode-escape')
+
             self.vk.messages.send(user_id=i['author'],
-                                  message=MESS_REMIND.substitute(title=i['title'].encode().decode('utf-8')),
+                                  message=MESS_REMIND.substitute(title=title),
                                   random_id=get_random_id(),
                                   keyboard=KB_MAIN_MENU.get_keyboard())
 
