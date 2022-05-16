@@ -72,6 +72,9 @@ for event in longpoll.listen():
         elif message == '📃 список напоминаний' or message == 'список' or message == 'расписание':
             handler.timetable(peer_id, datetime.now())
 
+        elif message == '✅ завершить напоминание' or message == 'завершить' or message == 'завершить напоминание':
+            handler.finish_step1(peer_id)
+
         # команда начать: приветствие пользователя
         elif message == 'начать':
             handler.start(peer_id)
