@@ -18,7 +18,7 @@ class DataBase:
             user=DB_USER,
             password=DB_PASSWORD,
             db=DB_DATABASE,
-            charset='utf8mb4',
+            charset='utf8',
             cursorclass=DictCursor,
             autocommit=True,
             use_unicode=True
@@ -67,10 +67,16 @@ class DataBase:
 
         return self.cur.fetchall()
 
-    def get_author_reminders(self, author: int, date: datetime):
+    def get_author_date_reminders(self, author: int, date: datetime):
         self.cur.execute(f"""SELECT * FROM reminders WHERE finished=0 and check_date
                          >=%s AND check_date <=%s and author=%s""",
                          (date.strftime('%Y-%m-%d 00:00:00'), date.strftime('%Y-%m-%d 23:59:59'), author))
+
+        return self.cur.fetchall()
+
+    def get_author_reminders(self, author: int):
+        self.cur.execute(f"""SELECT * FROM reminders WHERE finished=0 and author=%s""",
+                         (author, ))
 
         return self.cur.fetchall()
 
