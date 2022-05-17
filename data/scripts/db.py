@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import pymysql
 from emoji import is_emoji
@@ -37,9 +37,6 @@ class DataBase:
                          created_date datetime);""")
         self.conn.commit()
 
-        self.cur.execute('ALTER TABLE reminders CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_bin')
-        self.conn.commit()
-
         print('EasyScheduler >', f'Подключение к базе данных {DB_DATABASE} успешно.')
 
     def add_to_db(self, title=None, author=None, attachments=None, check_date=None, need_notification=True,
@@ -62,19 +59,28 @@ class DataBase:
         self.conn.commit()
 
     def get_actual_reminders(self, date_and_time: str) -> tuple:
+        """
+        Получить актуальные напоминания.
+        """
         self.cur.execute(f"SELECT * FROM reminders WHERE finished=0 and check_date=%s and need_notification=1",
                          (date_and_time,))
 
         return self.cur.fetchall()
 
-    def get_author_date_reminders(self, author: int, date: datetime):
+    def get_author_date_reminders(self, author: int, date: datetime) -> tuple:
+        """
+        Получить напоминания определенного автора по определенной дате.
+        """
         self.cur.execute(f"""SELECT * FROM reminders WHERE finished=0 and check_date
                          >=%s AND check_date <=%s and author=%s""",
                          (date.strftime('%Y-%m-%d 00:00:00'), date.strftime('%Y-%m-%d 23:59:59'), author))
 
         return self.cur.fetchall()
 
-    def get_author_reminders(self, author: int):
+    def get_author_reminders(self, author: int) -> tuple:
+        """
+        Получить напоминания от определенного автора.
+        """
         self.cur.execute(f"""SELECT * FROM reminders WHERE finished=0 and author=%s""",
                          (author, ))
 
@@ -87,5 +93,35 @@ class DataBase:
         self.cur.execute(f"SELECT * FROM reminders WHERE author={author} ORDER BY id DESC LIMIT 1")
         reminder_id = self.cur.fetchone()['id']
 
-        self.cur.execute(f'UPDATE reminders SET check_date = %s WHERE id = %s', (date, reminder_id))
+        self.cur.execute('UPDATE reminders SET check_date = %s WHERE id = %s',
+                         (date, reminder_id))
         self.conn.commit()
+
+        self.cur.execute('UPDATE reminders SET need_notification = 1 WHERE id = %s',
+                         (reminder_id, ))
+        self.conn.commit()
+
+    def set_finished(self, list_of_id: list) -> None:
+        """
+        Отметить напоминания завершенными.
+        """
+        for i in list_of_id:
+            self.cur.execute('UPDATE reminders SET finished = 1 WHERE id = %s', (i, ))
+            self.conn.commit()
+
+    def set_delayed(self, reminder_id: int) -> None:
+        """
+        Отметить напоминания отложенными.
+        """
+        self.cur.execute('SELECT * FROM reminders WHERE id = %s', (reminder_id, ))
+        update_date = self.cur.fetchone()['check_date'] + timedelta(minutes=5)
+
+        self.cur.execute('UPDATE reminders SET check_date = %s WHERE id = %s', (update_date, reminder_id))
+        self.conn.commit()
+
+    def get_reminder(self, reminder_id: int) -> tuple:
+        """
+        Получить напоминание по id.
+        """
+        self.cur.execute('SELECT * FROM reminders WHERE id = %s', (reminder_id, ))
+        return self.cur.fetchone()
