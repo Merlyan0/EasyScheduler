@@ -133,11 +133,16 @@ class Date:
         self.changed_date = True
         self.day = day
 
-    def update_hour(self, hour: int) -> None:
+    def update_hour(self, hour: int, check_now=False) -> None:
         """
         Обновить час в дате.
         """
         self.changed_time = True
+
+        if check_now:
+            if self.get_datetime().replace(hour=hour) < datetime.now():
+                self.after_days(1)
+
         self.hour = hour
 
     def update_minute(self, minute: int) -> None:
