@@ -17,7 +17,6 @@ from data.scripts.handler import BotHandler
 # настройки из конфига
 from config import *
 
-
 # подключение к сервисам API ВКонтакте
 vk_session = vk_api.VkApi(token=TOKEN)
 vk = vk_session.get_api()
@@ -45,7 +44,6 @@ def every_minute() -> None:
 # отправка подошедших по времени напоминаний
 every_minute()
 
-
 # все приходящие с сервера события
 for event in longpoll.listen():
 
@@ -64,6 +62,10 @@ for event in longpoll.listen():
         elif message == '⚙ настройки' or message == 'настройки':
             handler.settings(peer_id)
 
+        # команда перехода в ручное меню
+        elif message == '📝 ручной режим' or message == 'ручной режим' or message == 'ручной':
+            handler.manual_mode(peer_id)
+
         # команда ручного создания напоминаний
         elif message == '📝 создать напоминание' or message == 'создать напоминание' or message == 'создать':
             handler.create_manually_step1(peer_id)
@@ -72,6 +74,7 @@ for event in longpoll.listen():
         elif message == '📃 список напоминаний' or message == 'список' or message == 'расписание':
             handler.timetable(peer_id, datetime.now())
 
+        # команда завершения напоминания
         elif message == '✅ завершить напоминание' or message == 'завершить' or message == 'завершить напоминание':
             handler.finish_step1(peer_id)
 
@@ -80,20 +83,35 @@ for event in longpoll.listen():
             handler.start(peer_id)
 
         else:
-            # id предыдущего сообщение
-            conv_mess_id = event.object.message["conversation_message_id"] - 1
-            # предыдущее сообщение
-            prev_mess = vk.messages.getByConversationMessageId(peer_id=peer_id,
-                                                               conversation_message_ids=conv_mess_id)
 
-            if prev_mess['items'][0]['text'] == handler.get_message("MESS_CREATE_REMINDER"):
+            try:
+                # id предыдущего сообщение
+                conv_mess_id = event.object.message["conversation_message_id"] - 1
+
+                # предыдущее сообщение
+                prev_mess = vk.messages.getByConversationMessageId(peer_id=peer_id,
+                                                                   conversation_message_ids=conv_mess_id)
+                prev_mess = prev_mess['items'][0]['text']
+
+            except (BaseException,):
+                prev_mess = ''
+
+            if prev_mess == handler.get_message("MESS_HOW_TO_REMOVE"):
+                handler.finish_step2(event)
+
+            elif prev_mess == handler.get_message("MESS_CREATE_REMINDER"):
                 handler.create_manually_step2(event)
 
-            elif prev_mess['items'][0]['text'] == handler.get_message("MESS_CREATE_REMINDER_COMPLETED_1"):
+            elif prev_mess == handler.get_message("MESS_CREATE_REMINDER_COMPLETED_1"):
                 handler.create_manually_step3(event)
 
             else:
                 handler.reminder_analyzer(event)
 
     elif event.type == VkBotEventType.MESSAGE_EVENT:
-        pass
+
+        if event.object.payload.get("type") == "set_finish":
+            handler.set_finished(event.object, event.object.payload.get("id"))
+
+        elif event.object.payload.get("type") == "set_delayed":
+            handler.set_delayed(event.object, event.object.payload.get("id"))
