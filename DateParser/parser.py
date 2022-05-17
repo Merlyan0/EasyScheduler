@@ -174,6 +174,28 @@ def analyze_string(starting_text) -> tuple:
                         to_delete.append(i - 1)
                         to_delete.append(i)
 
+                    # вид обрабатываемой строки: в час дня
+                    elif i - 1 != -1 and i + 1 < len(normal_forms) and normal_forms[i - 1] == 'в' \
+                            and normal_forms[i] == 'час' and normal_forms[i + 1] == 'день':
+                        parsed_date.update_hour(13, check_now=True)
+                        to_delete.append(i - 1)
+                        to_delete.append(i)
+                        to_delete.append(i + 1)
+
+                    # вид обрабатываемой строки: в час ночи
+                    elif i - 1 != -1 and i + 1 < len(normal_forms) and normal_forms[i - 1] == 'в' \
+                            and normal_forms[i] == 'час' and normal_forms[i + 1] == 'ночь':
+                        parsed_date.update_hour(1, check_now=True)
+                        to_delete.append(i - 1)
+                        to_delete.append(i)
+                        to_delete.append(i + 1)
+
+                    # вид обрабатываемой строки: в час
+                    elif i - 1 != -1 and normal_forms[i - 1] == 'в' and normal_forms[i] == 'час':
+                        parsed_date.update_hour(13, check_now=True)
+                        to_delete.append(i - 1)
+                        to_delete.append(i)
+
             # обработка чисел
             elif temp_list2[i].isdigit():
 
