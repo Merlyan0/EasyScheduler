@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from vk_api.utils import get_random_id
 
 from DateParser.parser import analyze_string
+from config import SUPPORT_ID
 
 from data.scripts import messages
 from data.scripts.messages import *
@@ -50,6 +51,40 @@ class BotHandler:
                               message=MESS_SETTINGS,
                               random_id=get_random_id(),
                               keyboard=KB_BACK.get_keyboard())
+
+    def unknown_error(self, peer_id: int) -> None:
+        """
+        Возникла неизвестная ошибка.
+        """
+        self.vk.messages.send(peer_id=peer_id,
+                              message=MESS_UNKNOWN_ERROR,
+                              random_id=get_random_id(),
+                              keyboard=KB_MAIN_MENU.get_keyboard())
+
+    def support_step1(self, peer_id: int) -> None:
+        """
+        Работа команды помощи.
+        """
+        self.vk.messages.send(peer_id=peer_id,
+                              message=MESS_SUPPORT_1,
+                              random_id=get_random_id(),
+                              keyboard=KB_BACK.get_keyboard())
+
+    def support_step2(self, event) -> None:
+        """
+        Работа команды помощи.
+        """
+        from_id = "// ОТ: vk.com/id" + str(event.object.message['from_id']) + " //\n\n"
+        decorate = "==========================\n"
+
+        self.vk.messages.send(peer_id=SUPPORT_ID,
+                              message=decorate + from_id + event.object.message['text'] + decorate,
+                              random_id=get_random_id())
+
+        self.vk.messages.send(peer_id=event.object.message['peer_id'],
+                              message=MESS_SUPPORT_2,
+                              random_id=get_random_id(),
+                              keyboard=KB_MAIN_MENU.get_keyboard())
 
     def manual_mode(self, peer_id: int) -> None:
         """
@@ -188,28 +223,24 @@ class BotHandler:
         """
         date = event.object.message["text"]
 
-        try:
-            date = check_date(date)
-            now_date = datetime.now().strftime('%d.%m.%Y %H:%M')
-            user_date = date.strftime('%d.%m.%Y %H:%M')
+        date = check_date(date)
+        now_date = datetime.now().strftime('%d.%m.%Y %H:%M')
+        user_date = date.strftime('%d.%m.%Y %H:%M')
 
-            if date < datetime.now():
-                self.vk.messages.send(peer_id=event.object.message["peer_id"],
-                                      message=MESS_DATE_NOW_ERROR.substitute(now_date=now_date,
-                                                                             user_date=user_date),
-                                      random_id=get_random_id(),
-                                      keyboard=KB_MAIN_MENU.get_keyboard())
+        if date < datetime.now():
+            self.vk.messages.send(peer_id=event.object.message["peer_id"],
+                                  message=MESS_DATE_NOW_ERROR.substitute(now_date=now_date,
+                                                                         user_date=user_date),
+                                  random_id=get_random_id(),
+                                  keyboard=KB_MAIN_MENU.get_keyboard())
 
-            else:
-                self.db.set_date(event.object.message['from_id'], date.strftime('%Y-%m-%d %H:%M:%S'))
+        else:
+            self.db.set_date(event.object.message['from_id'], date.strftime('%Y-%m-%d %H:%M:%S'))
 
-                self.vk.messages.send(peer_id=event.object.message["peer_id"],
-                                      message=MESS_CREATE_REMINDER_COMPLETED_2,
-                                      random_id=get_random_id(),
-                                      keyboard=KB_MAIN_MENU.get_keyboard())
-
-        except (BaseException,):
-            self.reminder_analyzer(event)
+            self.vk.messages.send(peer_id=event.object.message["peer_id"],
+                                  message=MESS_CREATE_REMINDER_COMPLETED_2,
+                                  random_id=get_random_id(),
+                                  keyboard=KB_MAIN_MENU.get_keyboard())
 
     def reminder_analyzer(self, event) -> None:
         """
@@ -320,60 +351,68 @@ class BotHandler:
                                   keyboard=keyboard.get_keyboard())
 
     def set_delayed(self, event, reminder_id: int) -> None:
-        c_m_i = event["conversation_message_id"]
-        prev_mess = self.vk.messages.getByConversationMessageId(peer_id=event["peer_id"],
-                                                                conversation_message_ids=c_m_i)
-        prev_mess = prev_mess['items'][0]["text"]
+        try:
+            c_m_i = event["conversation_message_id"]
+            prev_mess = self.vk.messages.getByConversationMessageId(peer_id=event["peer_id"],
+                                                                    conversation_message_ids=c_m_i)
+            prev_mess = prev_mess['items'][0]["text"]
 
-        if self.db.get_reminder(reminder_id)['check_date'] + timedelta(minutes=5) <= datetime.now():
-            keyboard = VkKeyboard(one_time=False, inline=True)
+            if self.db.get_reminder(reminder_id)['check_date'] + timedelta(minutes=5) <= datetime.now():
+                keyboard = VkKeyboard(one_time=False, inline=True)
 
-            keyboard.add_callback_button(
-                label="Завершить",
-                color=VkKeyboardColor.SECONDARY,
-                payload={"type": "set_finish", "id": reminder_id})
+                keyboard.add_callback_button(
+                    label="Завершить",
+                    color=VkKeyboardColor.SECONDARY,
+                    payload={"type": "set_finish", "id": reminder_id})
+
+                self.vk.messages.edit(peer_id=event["peer_id"],
+                                      message=prev_mess,
+                                      conversation_message_id=event["conversation_message_id"],
+                                      keyboard=keyboard.get_keyboard())
+
+                self.vk.messages.sendMessageEventAnswer(
+                    event_id=event["event_id"],
+                    user_id=event["user_id"],
+                    peer_id=event["peer_id"],
+                    event_data=json.dumps({"type": "show_snackbar", "text": "Ошибка."}))
+
+            else:
+                self.vk.messages.edit(peer_id=event["peer_id"],
+                                      message=prev_mess + '\n\n&#128276; Повтор через 5 минут.',
+                                      conversation_message_id=event["conversation_message_id"])
+
+                self.vk.messages.sendMessageEventAnswer(
+                    event_id=event["event_id"],
+                    user_id=event["user_id"],
+                    peer_id=event["peer_id"],
+                    event_data=json.dumps({"type": "show_snackbar", "text": "Напоминание отложено."}))
+
+                self.db.set_delayed(reminder_id)
+
+        except (BaseException, ):
+            self.unknown_error(event["peer_id"])
+
+    def set_finished(self, event, reminder_id: int) -> None:
+        try:
+            c_m_i = event["conversation_message_id"]
+            prev_mess = self.vk.messages.getByConversationMessageId(peer_id=event["peer_id"],
+                                                                    conversation_message_ids=c_m_i)
+            prev_mess = prev_mess['items'][0]["text"]
 
             self.vk.messages.edit(peer_id=event["peer_id"],
-                                  message=prev_mess,
-                                  conversation_message_id=event["conversation_message_id"],
-                                  keyboard=keyboard.get_keyboard())
-
-            self.vk.messages.sendMessageEventAnswer(
-                event_id=event["event_id"],
-                user_id=event["user_id"],
-                peer_id=event["peer_id"],
-                event_data=json.dumps({"type": "show_snackbar", "text": "Ошибка."}))
-
-        else:
-            self.vk.messages.edit(peer_id=event["peer_id"],
-                                  message=prev_mess + '\n\n&#128276; Повтор через 5 минут.',
+                                  message=prev_mess + '\n\n&#127383; Напоминание завершено.',
                                   conversation_message_id=event["conversation_message_id"])
 
             self.vk.messages.sendMessageEventAnswer(
                 event_id=event["event_id"],
                 user_id=event["user_id"],
                 peer_id=event["peer_id"],
-                event_data=json.dumps({"type": "show_snackbar", "text": "Напоминание отложено."}))
+                event_data=json.dumps({"type": "show_snackbar", "text": "Напоминание завершено."}))
 
-            self.db.set_delayed(reminder_id)
+            self.db.set_finished([reminder_id, ])
 
-    def set_finished(self, event, reminder_id: int) -> None:
-        c_m_i = event["conversation_message_id"]
-        prev_mess = self.vk.messages.getByConversationMessageId(peer_id=event["peer_id"],
-                                                                conversation_message_ids=c_m_i)
-        prev_mess = prev_mess['items'][0]["text"]
-
-        self.vk.messages.edit(peer_id=event["peer_id"],
-                              message=prev_mess + '\n\n&#127383; Напоминание завершено.',
-                              conversation_message_id=event["conversation_message_id"])
-
-        self.vk.messages.sendMessageEventAnswer(
-            event_id=event["event_id"],
-            user_id=event["user_id"],
-            peer_id=event["peer_id"],
-            event_data=json.dumps({"type": "show_snackbar", "text": "Напоминание завершено."}))
-
-        self.db.set_finished([reminder_id, ])
+        except (BaseException, ):
+            self.unknown_error(event["peer_id"])
 
     @classmethod
     def get_message(cls, message: str) -> str:
