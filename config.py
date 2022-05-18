@@ -7,3 +7,6 @@ DB_HOST = 'HOST_ДЛЯ_ПОДКЛЮЧЕНИЯ_К_MYSQL'
 DB_USER = 'USER_ДЛЯ_ПОДКЛЮЧЕНИЯ_К_MYSQL'
 DB_PASSWORD = 'PASSWORD_ДЛЯ_ПОДКЛЮЧЕНИЯ_К_MYSQL'
 DB_DATABASE = 'ИМЯ_БД_ДЛЯ_ПОДКЛЮЧЕНИЯ_К_MYSQL'
+
+# VK
+SUPPORT_ID = 'ID_АДМИНИСТРАТОРА_БОТА'
