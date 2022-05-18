@@ -10,6 +10,7 @@ KB_MAIN_MENU.add_button('&#128221; Ручной режим', color=VkKeyboardCol
 
 KB_MAIN_MENU.add_line()
 KB_MAIN_MENU.add_button('&#9881; Настройки', color=VkKeyboardColor.PRIMARY)
+KB_MAIN_MENU.add_button('&#10067; Помощь', color=VkKeyboardColor.PRIMARY)
 
 
 # меню ручного ввода
