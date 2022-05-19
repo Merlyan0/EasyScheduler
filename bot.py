@@ -100,19 +100,24 @@ for event in longpoll.listen():
 
                 except (BaseException, ):
                     prev_mess = ''
-
+                
+                # сообщение адресовано в поддержку
                 if prev_mess == handler.get_message("MESS_SUPPORT_1"):
                     handler.support_step2(event)
 
+                # сообщение для удаления напоминаний
                 elif prev_mess == handler.get_message("MESS_HOW_TO_REMOVE"):
                     handler.finish_step2(event)
-
+                
+                # сообщение для ручного создания напоминания: название
                 elif prev_mess == handler.get_message("MESS_CREATE_REMINDER"):
                     handler.create_manually_step2(event)
 
+                # сообщение для ручного создания напоминания: дата
                 elif prev_mess == handler.get_message("MESS_CREATE_REMINDER_COMPLETED_1"):
                     handler.create_manually_step3(event)
-
+                
+                # анализ строки на предмет содержания напоминания
                 else:
                     handler.reminder_analyzer(event)
 
