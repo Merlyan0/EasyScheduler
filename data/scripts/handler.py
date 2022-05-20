@@ -2,6 +2,7 @@ import json
 import operator
 from datetime import datetime, timedelta
 
+import requests
 from vk_api.utils import get_random_id
 
 from DateParser.parser import analyze_string
@@ -10,7 +11,7 @@ from config import SUPPORT_ID
 from data.scripts import messages
 from data.scripts.messages import *
 
-from data.scripts.functions import check_date
+from data.scripts.functions import check_date, draw_timetable
 from data.scripts.keyboards import *
 
 
@@ -291,9 +292,9 @@ class BotHandler:
 
             else:
                 self.vk.messages.send(peer_id=event.object.message["peer_id"],
-                                  message=MESS_REMINDER_RECEIVED_NO_TIME.substitute(title=title, time=time),
-                                  random_id=get_random_id(),
-                                  keyboard=KB_MAIN_MENU.get_keyboard())
+                                      message=MESS_REMINDER_RECEIVED_NO_TIME.substitute(title=title, time=time),
+                                      random_id=get_random_id(),
+                                      keyboard=KB_MAIN_MENU.get_keyboard())
 
             need_notification = False
 
@@ -389,7 +390,7 @@ class BotHandler:
 
                 self.db.set_delayed(reminder_id)
 
-        except (BaseException, ):
+        except (BaseException,):
             self.unknown_error(event["peer_id"])
 
     def set_finished(self, event, reminder_id: int) -> None:
@@ -411,8 +412,42 @@ class BotHandler:
 
             self.db.set_finished([reminder_id, ])
 
-        except (BaseException, ):
+        except (BaseException,):
             self.unknown_error(event["peer_id"])
+
+    def drawing_tt(self, peer_id: int, user: dict) -> None:
+        """
+        Прислать фотографию пользователю с его расписанием.
+        """
+        a = self.db.get_author_date_reminders(peer_id, datetime.now())
+
+        if a != ():
+            a.sort(key=operator.itemgetter('check_date'))
+
+            data = self.vk.photos.getMessagesUploadServer(peer_id=peer_id)
+            url = data['upload_url']
+            img = {'photo': ("file.jpeg", draw_timetable(a, user['first_name'] + ' ' + user['last_name']))}
+
+            r = requests.post(url, files=img)
+            r = json.loads(r.text)
+
+            server = r['server']
+            photo = r['photo']
+            photo_hash = r['hash']
+
+            photo_id = self.vk.photos.saveMessagesPhoto(server=server, photo=photo, hash=photo_hash)
+            photo_id = photo_id[0]
+
+            photo_url = 'photo' + str(photo_id['owner_id']) + '_' + str(photo_id['id']) + '_' + \
+                        str(photo_id['access_key'])
+
+            self.vk.messages.send(peer_id=peer_id, attachment=photo_url, random_id=get_random_id())
+
+        else:
+            self.vk.messages.send(peer_id=peer_id,
+                                  message=MESS_NO_REMINDERS,
+                                  random_id=get_random_id(),
+                                  keyboard=KB_MAIN_MENU.get_keyboard())
 
     @classmethod
     def get_message(cls, message: str) -> str:
