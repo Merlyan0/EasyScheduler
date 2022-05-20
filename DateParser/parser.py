@@ -2,6 +2,7 @@ import pymorphy2
 
 from DateParser.classDate import Date
 
+
 # знаки пунктуации
 punctuation = ('.', ',', ';', ':', '?', '!', '-', '(', ')', '"', '\'')
 
@@ -359,4 +360,4 @@ def analyze_string(starting_text) -> tuple:
         if i not in to_delete:
             finished_list.append(temp_list2[i])
 
-    return parsed_date.get_datetime(), finished_list, parsed_date.get_changed()
+    return parsed_date.final_date(), finished_list, parsed_date.get_changed()
