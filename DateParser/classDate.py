@@ -6,13 +6,17 @@ class Date:
     """
     Класс обработанной в алгоритме даты.
     """
+
     def __init__(self) -> None:
         cur_date = self.get_current_date()
+
         self.year = cur_date.year
         self.month = cur_date.month
         self.day = cur_date.day
+
         self.hour = 0
         self.minute = 0
+
         self.changed_time = False
         self.changed_date = False
 
@@ -203,3 +207,15 @@ class Date:
         self.minute = 0
         self.changed_time = False
         self.changed_date = False
+
+    def final_date(self) -> datetime:
+        """
+        Получить финальный вариант даты.
+        """
+        self.repair_date()
+
+        if not self.changed_date and self.changed_time and self.get_datetime() < datetime.now():
+            self.after_days(1)
+            self.repair_date()
+
+        return datetime(self.year, self.month, self.day, self.hour, self.minute)
