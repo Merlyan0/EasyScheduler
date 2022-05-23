@@ -37,6 +37,13 @@ class DataBase:
                          created_date datetime);""")
         self.conn.commit()
 
+        self.cur.execute("""CREATE TABLE IF NOT EXISTS users(
+                                 id integer AUTO_INCREMENT PRIMARY KEY,
+                                 user_id int,                    
+                                 vip bool,
+                                 created_date datetime);""")
+        self.conn.commit()
+
         print('EasyScheduler >', f'Подключение к базе данных {DB_DATABASE} успешно.')
 
     def add_to_db(self, title=None, author=None, attachments=None, check_date=None, need_notification=True,
@@ -125,3 +132,16 @@ class DataBase:
         """
         self.cur.execute('SELECT * FROM reminders WHERE id = %s', (reminder_id, ))
         return self.cur.fetchone()
+
+    def add_user(self, user_id: int) -> None:
+        """
+        Добавить пользователя в БД.
+        """
+        self.cur.execute('SELECT * FROM users WHERE user_id = %s', (user_id, ))
+        if not self.cur.fetchone():
+            self.cur.execute(f"""INSERT INTO users(
+                                 user_id,                 
+                                 vip,
+                                 created_date)
+                           VALUES (%s, %s, %s);""", (user_id, False, datetime.now()))
+            self.conn.commit()

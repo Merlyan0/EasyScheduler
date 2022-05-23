@@ -1,7 +1,14 @@
+import os
 from datetime import datetime
 from io import BytesIO
 
 from PIL import Image, ImageDraw, ImageFont
+
+import requests
+import speech_recognition as sr
+from pydub import AudioSegment
+
+r = sr.Recognizer()  # распознаватель голоса
 
 
 def check_date(date: str) -> datetime:
@@ -62,3 +69,26 @@ def draw_timetable(reminders: list, authors_name: str) -> bytes:
     timetable.save(output, format='JPEG')
 
     return output.getvalue()
+
+
+def speech_recognizer(audio: str) -> str:
+    to_scripts_path = os.getcwd() + '/data/scripts'
+
+    doc = requests.get(audio)
+    filename = audio.split('/')[-1].split('.')[0]
+
+    with open(to_scripts_path + f'/temp/{filename}.mp3', 'wb') as f:
+        f.write(doc.content)
+
+    sound = AudioSegment.from_mp3(to_scripts_path + f'/temp/{filename}.mp3')
+    sound.export(to_scripts_path + f'/temp/{filename}.wav', format="wav")
+
+    audio_ex = sr.AudioFile(to_scripts_path + f'/temp/{filename}.wav')
+
+    with audio_ex:
+        audio_data = r.record(audio_ex)
+
+    os.remove(to_scripts_path + f'/temp/{filename}.mp3')
+    os.remove(to_scripts_path + f'/temp/{filename}.wav')
+
+    return r.recognize_google(audio_data, language='ru-RU')

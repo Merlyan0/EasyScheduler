@@ -26,12 +26,36 @@ class BotHandler:
         self.vk = vk
         self.db = db
 
+    def check_user_db(self, user_id: int) -> None:
+        """
+        Проверить наличие пользователя в БД.
+        """
+        self.db.add_user(user_id)
+
     def start(self, peer_id: int) -> None:
         """
         Функция, приветствующая пользователя при начале общения.
         """
         self.vk.messages.send(peer_id=peer_id,
                               message=MESS_WELCOME,
+                              random_id=get_random_id(),
+                              keyboard=KB_MAIN_MENU.get_keyboard())
+
+    def sticker_error(self, peer_id: int) -> None:
+        """
+        Вывести ошибку об использовании стикеров.
+        """
+        self.vk.messages.send(peer_id=peer_id,
+                              message=MESS_STICKER_ERROR,
+                              random_id=get_random_id(),
+                              keyboard=KB_MAIN_MENU.get_keyboard())
+
+    def empty_error(self, peer_id: int) -> None:
+        """
+        Вывести ошибку о пустом сообщении.
+        """
+        self.vk.messages.send(peer_id=peer_id,
+                              message=MESS_EMPTY_ERROR,
                               random_id=get_random_id(),
                               keyboard=KB_MAIN_MENU.get_keyboard())
 
@@ -79,7 +103,7 @@ class BotHandler:
         decorate = "==========================\n"
 
         self.vk.messages.send(peer_id=SUPPORT_ID,
-                              message=decorate + from_id + event.object.message['text'] + decorate,
+                              message=decorate + from_id + event.object.message['text'] + '\n' + decorate,
                               random_id=get_random_id())
 
         self.vk.messages.send(peer_id=event.object.message['peer_id'],
@@ -188,7 +212,7 @@ class BotHandler:
                                   message=MESS_TIMETABLE.substitute(general=''.join(general),
                                                                     with_time=''.join(with_time)),
                                   random_id=get_random_id(),
-                                  keyboard=KB_MAIN_MENU.get_keyboard())
+                                  keyboard=KB_TIMETABLE_MENU.get_keyboard())
         else:
             self.vk.messages.send(peer_id=peer_id,
                                   message=MESS_NO_REMINDERS,
@@ -424,24 +448,12 @@ class BotHandler:
         if a != ():
             a.sort(key=operator.itemgetter('check_date'))
 
-            data = self.vk.photos.getMessagesUploadServer(peer_id=peer_id)
-            url = data['upload_url']
             img = {'photo': ("file.jpeg", draw_timetable(a, user['first_name'] + ' ' + user['last_name']))}
 
-            r = requests.post(url, files=img)
-            r = json.loads(r.text)
-
-            server = r['server']
-            photo = r['photo']
-            photo_hash = r['hash']
-
-            photo_id = self.vk.photos.saveMessagesPhoto(server=server, photo=photo, hash=photo_hash)
-            photo_id = photo_id[0]
-
-            photo_url = 'photo' + str(photo_id['owner_id']) + '_' + str(photo_id['id']) + '_' + \
-                        str(photo_id['access_key'])
-
-            self.vk.messages.send(peer_id=peer_id, attachment=photo_url, random_id=get_random_id())
+            self.vk.messages.send(peer_id=peer_id,
+                                  message=MESS_DRAWING_TT,
+                                  attachment=self.upload_photo(peer_id, img),
+                                  random_id=get_random_id())
 
         else:
             self.vk.messages.send(peer_id=peer_id,
@@ -449,6 +461,40 @@ class BotHandler:
                                   random_id=get_random_id(),
                                   keyboard=KB_MAIN_MENU.get_keyboard())
 
+    def upload_photo(self, peer_id: int, img: dict) -> str:
+        """
+        Загрузить фото на сервер ВКонтакте.
+        """
+        data = self.vk.photos.getMessagesUploadServer(peer_id=peer_id)
+        url = data['upload_url']
+
+        r = requests.post(url, files=img)
+        r = json.loads(r.text)
+
+        server = r['server']
+        photo = r['photo']
+        photo_hash = r['hash']
+
+        photo_id = self.vk.photos.saveMessagesPhoto(server=server, photo=photo, hash=photo_hash)
+        photo_id = photo_id[0]
+
+        photo_url = 'photo' + str(photo_id['owner_id']) + '_' + str(photo_id['id']) + '_' + \
+                    str(photo_id['access_key'])
+
+        return photo_url
+
+    def audio_converter(self, peer_id: int, message: str) -> None:
+        """
+        Отправляет пользователю сообщение с распознанным текстом.
+        """
+        self.vk.messages.send(peer_id=peer_id,
+                              message=MESS_AUDIO_CONVERTER.substitute(message=message),
+                              random_id=get_random_id(),
+                              keyboard=KB_MAIN_MENU.get_keyboard())
+
+    """
+    СИСТЕМНЫЕ МЕТОДЫ
+    """
     @classmethod
     def get_message(cls, message: str) -> str:
         """

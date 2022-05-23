@@ -12,6 +12,7 @@ from vk_api.bot_longpoll import VkBotLongPoll, VkBotEventType
 from data.scripts.db import DataBase
 
 # обработчик команд
+from data.scripts.functions import speech_recognizer
 from data.scripts.handler import BotHandler
 
 # настройки из конфига
@@ -50,13 +51,33 @@ for event in longpoll.listen():
     # пришло новое сообщение
     if event.type == VkBotEventType.MESSAGE_NEW:
         pprint(event.object)
-
         try:
+
+            # проверка пользователя в БД
+            handler.check_user_db(event.object.message["from_id"])
+
             message = event.object.message["text"].lower()  # присланное сообщение
             peer_id = event.object.message["peer_id"]  # id диалога в боте
+            attachments = event.object.message["attachments"]  # вложения
+
+            # если пришел стикер
+            if message == '' and attachments != [] and 'sticker' in attachments[0]:
+                handler.sticker_error(peer_id)
+
+            # если пришло голосовое сообщение
+            elif message == '' and attachments != [] and 'audio_message' in attachments[0]:
+                message = event.object.message["attachments"][0]['audio_message']['link_mp3']
+                message = speech_recognizer(message)
+                handler.audio_converter(peer_id, message)
+                event.object.message["text"] = message
+                handler.reminder_analyzer(event)
+
+            # если пришло пустое сообщение
+            elif message == '':
+                handler.empty_error(peer_id)
 
             # команда главного меню
-            if message == 'главная' or message == '🔙 главное меню':
+            elif message == 'главная' or message == '🔙 главное меню':
                 handler.main_menu(peer_id)
 
             # команда настроек
@@ -87,7 +108,8 @@ for event in longpoll.listen():
             elif message == 'начать':
                 handler.start(peer_id)
 
-            elif message == 'расписание1':
+            # команда отрисовки расписания
+            elif message == '⏏ генерация фото' or message == 'генерация фото' or message == 'генерация':
                 handler.drawing_tt(peer_id, vk.users.get(user_ids=event.object.message["from_id"])[0])
 
             else:

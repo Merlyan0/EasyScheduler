@@ -12,6 +12,13 @@ KB_MAIN_MENU.add_line()
 KB_MAIN_MENU.add_button('&#9881; Настройки', color=VkKeyboardColor.PRIMARY)
 KB_MAIN_MENU.add_button('&#10067; Помощь', color=VkKeyboardColor.PRIMARY)
 
+# меню отрисовки расписания
+KB_TIMETABLE_MENU = VkKeyboard(one_time=False)
+
+KB_TIMETABLE_MENU.add_button('&#9167; Генерация фото')
+
+KB_TIMETABLE_MENU.add_line()
+KB_TIMETABLE_MENU.add_button('&#128281; Главное меню')
 
 # меню ручного ввода
 KB_MANUAL_MODE = VkKeyboard(one_time=False)
