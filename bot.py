@@ -2,7 +2,6 @@
 import threading
 import time
 from datetime import datetime
-from pprint import pprint
 
 # VK API
 import vk_api
@@ -12,7 +11,6 @@ from vk_api.bot_longpoll import VkBotLongPoll, VkBotEventType
 from data.scripts.db import DataBase
 
 # обработчик команд
-from data.scripts.functions import speech_recognizer
 from data.scripts.handler import BotHandler
 
 # настройки из конфига
@@ -50,7 +48,7 @@ for event in longpoll.listen():
 
     # пришло новое сообщение
     if event.type == VkBotEventType.MESSAGE_NEW:
-        pprint(event.object)
+
         try:
 
             # проверка пользователя в БД
@@ -66,11 +64,12 @@ for event in longpoll.listen():
 
             # если пришло голосовое сообщение
             elif message == '' and attachments != [] and 'audio_message' in attachments[0]:
-                message = event.object.message["attachments"][0]['audio_message']['link_mp3']
-                message = speech_recognizer(message)
-                handler.audio_converter(peer_id, message)
-                event.object.message["text"] = message
-                handler.reminder_analyzer(event)
+                audio = event.object.message["attachments"][0]['audio_message']['link_mp3']
+                message = handler.audio_converter(peer_id, audio)
+
+                if message != '':
+                    event.object.message["text"] = message
+                    handler.reminder_analyzer(event)
 
             # если пришло пустое сообщение
             elif message == '':

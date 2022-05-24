@@ -6,12 +6,12 @@ import requests
 from vk_api.utils import get_random_id
 
 from DateParser.parser import analyze_string
-from config import SUPPORT_ID
+from config import SUPPORT_ID, DRAW_LIMIT, MAX_SYMBOLS, VOICE_LIMIT
 
 from data.scripts import messages
 from data.scripts.messages import *
 
-from data.scripts.functions import check_date, draw_timetable
+from data.scripts.functions import check_date, draw_timetable, speech_recognizer
 from data.scripts.keyboards import *
 
 
@@ -346,14 +346,35 @@ class BotHandler:
                                       keyboard=KB_MAIN_MENU.get_keyboard())
 
         if need_add:
-            self.db.add_to_db(title=title, author=event.object.message["from_id"],
+            event_att = event.object.message["attachments"]
+            attachments = list()
+
+            for i in event_att:
+                att_type = i['type']
+                owner_id = str(i[att_type]['owner_id'])
+                att_id = str(i[att_type]['id'])
+
+                if att_type == 'audio':
+                    attachments.append(att_type + owner_id + '_' + att_id)
+
+                else:
+                    access_key = i[att_type]['access_key']
+                    attachments.append(att_type + owner_id + '_' + att_id + '_' + access_key)
+
+            self.db.add_to_db(title=title, author=event.object.message["from_id"], attachments=', '.join(attachments),
                               check_date=a[0].strftime('%Y-%m-%d %H:%M:%S'), need_notification=need_notification)
+
+            if len(title) > MAX_SYMBOLS:
+                self.vk.messages.send(peer_id=event.object.message["peer_id"],
+                                      message=MESS_MAX_SYMBOL.substitute(limit=MAX_SYMBOLS),
+                                      random_id=get_random_id(),
+                                      keyboard=KB_MAIN_MENU.get_keyboard())
 
     def send_reminders(self, date: str) -> None:
         """
         Отправить все подошедшие по времени напоминания.
         """
-        for i in self.db.get_actual_reminders(date):
+        for i in self.db.get_actual_reminders(date, is_done=True):
             title = i['title'].encode('unicode-escape').replace(b'\\\\', b'\\').decode('unicode-escape')
 
             keyboard = VkKeyboard(one_time=False, inline=True)
@@ -372,8 +393,11 @@ class BotHandler:
 
             self.vk.messages.send(user_id=i['author'],
                                   message=MESS_REMIND.substitute(title=title),
+                                  attachment=i['attachments'].split(', '),
                                   random_id=get_random_id(),
                                   keyboard=keyboard.get_keyboard())
+
+            self.db.set_done(i['id'])
 
     def set_delayed(self, event, reminder_id: int) -> None:
         try:
@@ -414,7 +438,7 @@ class BotHandler:
 
                 self.db.set_delayed(reminder_id)
 
-        except (BaseException,):
+        except (BaseException, ):
             self.unknown_error(event["peer_id"])
 
     def set_finished(self, event, reminder_id: int) -> None:
@@ -443,21 +467,37 @@ class BotHandler:
         """
         Прислать фотографию пользователю с его расписанием.
         """
-        a = self.db.get_author_date_reminders(peer_id, datetime.now())
+        self.db.update_limits(peer_id)
 
-        if a != ():
-            a.sort(key=operator.itemgetter('check_date'))
-
-            img = {'photo': ("file.jpeg", draw_timetable(a, user['first_name'] + ' ' + user['last_name']))}
+        if self.db.get_user_draw_limit(peer_id) < DRAW_LIMIT:
 
             self.vk.messages.send(peer_id=peer_id,
-                                  message=MESS_DRAWING_TT,
-                                  attachment=self.upload_photo(peer_id, img),
+                                  message=MESS_LOADING,
                                   random_id=get_random_id())
+
+            a = self.db.get_author_date_reminders(peer_id, datetime.now())
+
+            if a != ():
+                a.sort(key=operator.itemgetter('check_date'))
+
+                img = {'photo': ("file.jpeg", draw_timetable(a, user['first_name'] + ' ' + user['last_name']))}
+
+                self.vk.messages.send(peer_id=peer_id,
+                                      message=MESS_DRAWING_TT.substitute(limit=DRAW_LIMIT),
+                                      attachment=self.upload_photo(peer_id, img),
+                                      random_id=get_random_id())
+
+                self.db.add_to_draw_limit(peer_id)
+
+            else:
+                self.vk.messages.send(peer_id=peer_id,
+                                      message=MESS_NO_REMINDERS,
+                                      random_id=get_random_id(),
+                                      keyboard=KB_MAIN_MENU.get_keyboard())
 
         else:
             self.vk.messages.send(peer_id=peer_id,
-                                  message=MESS_NO_REMINDERS,
+                                  message=MESS_DRAW_LIMIT.substitute(limit=DRAW_LIMIT),
                                   random_id=get_random_id(),
                                   keyboard=KB_MAIN_MENU.get_keyboard())
 
@@ -483,18 +523,34 @@ class BotHandler:
 
         return photo_url
 
-    def audio_converter(self, peer_id: int, message: str) -> None:
+    def audio_converter(self, peer_id: int, audio: str) -> str:
         """
-        Отправляет пользователю сообщение с распознанным текстом.
+        Обработка голосовых сообщений.
         """
-        self.vk.messages.send(peer_id=peer_id,
-                              message=MESS_AUDIO_CONVERTER.substitute(message=message),
-                              random_id=get_random_id(),
-                              keyboard=KB_MAIN_MENU.get_keyboard())
+        self.db.update_limits(peer_id)
+
+        if self.db.get_user_voice_limit(peer_id) < VOICE_LIMIT:
+            message = speech_recognizer(audio)
+
+            self.vk.messages.send(peer_id=peer_id,
+                                  message=MESS_AUDIO_CONVERTER.substitute(message=message, limit=VOICE_LIMIT),
+                                  random_id=get_random_id(),
+                                  keyboard=KB_MAIN_MENU.get_keyboard())
+
+            self.db.add_to_voice_limit(peer_id)
+
+            return message
+        else:
+            self.vk.messages.send(peer_id=peer_id,
+                                  message=MESS_VOICE_LIMIT.substitute(limit=VOICE_LIMIT),
+                                  random_id=get_random_id(),
+                                  keyboard=KB_MAIN_MENU.get_keyboard())
+            return ''
 
     """
     СИСТЕМНЫЕ МЕТОДЫ
     """
+
     @classmethod
     def get_message(cls, message: str) -> str:
         """
