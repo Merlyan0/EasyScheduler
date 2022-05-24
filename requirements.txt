@@ -6,3 +6,4 @@ pillow
 requests
 ffmpeg
 pydub
+speechrecognition

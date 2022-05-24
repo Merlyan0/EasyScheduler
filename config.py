@@ -10,3 +10,8 @@ DB_DATABASE = 'ИМЯ_БД_ДЛЯ_ПОДКЛЮЧЕНИЯ_К_MYSQL'
 
 # VK
 SUPPORT_ID = 'ID_АДМИНИСТРАТОРА_БОТА'
+
+# LIMITS
+DRAW_LIMIT = 5
+VOICE_LIMIT = 10
+MAX_SYMBOLS = 80
