@@ -140,6 +140,9 @@ class DataBase:
         self.cur.execute('UPDATE reminders SET check_date = %s WHERE id = %s', (update_date, reminder_id))
         self.conn.commit()
 
+        self.cur.execute('UPDATE reminders SET done = 0 WHERE id = %s', (reminder_id, ))
+        self.conn.commit()
+
     def get_reminder(self, reminder_id: int) -> tuple:
         """
         Получить напоминание по id.
@@ -219,3 +222,70 @@ class DataBase:
         """
         self.cur.execute('UPDATE reminders SET done = 1 WHERE id = %s', (reminder_id, ))
         self.conn.commit()
+
+    def repeat(self, reminder_id: int) -> None:
+        """
+        Заменить дату напоминания на необходимую дату его повтора.
+        """
+        self.cur.execute('SELECT * FROM reminders WHERE id = %s', (reminder_id, ))
+        reminder = self.cur.fetchone()
+        repeat_every = reminder['repeat_every']
+        date = reminder['check_date']
+        if repeat_every == -1:
+            return
+
+        if repeat_every == -2:
+            if date.day != 29 and date.month != 2:
+                update_date = date.replace(year=date.year + 1)
+            else:
+                update_date = date.replace(day=28, year=date.year + 1)
+
+        elif repeat_every == -3:
+            if date.day >= 29 and date.month + 1 == 2:
+                update_date = date.replace(day=28, month=date.month + 1)
+            else:
+                try:
+                    update_date = date.replace(month=date.month + 1)
+
+                except ValueError:
+                    update_date = date.replace(day=date.day - 1, month=date.month + 1)
+
+        else:
+            update_date = date + timedelta(days=int(repeat_every))
+
+        self.cur.execute('UPDATE reminders SET check_date = %s WHERE id = %s', (update_date, reminder_id))
+        self.conn.commit()
+
+    def repeat_all(self):
+        """
+        Заменить дату у всех неотмеченных напоминаний.
+        """
+        self.cur.execute('SELECT * FROM reminders WHERE need_notification = 0 and finished = 0')
+
+        for i in self.cur.fetchall():
+            if i['repeat_every'] == -1:
+                continue
+
+            if i['repeat_every'] == -2:
+                if i['check_date'].day != 29 and i['check_date'].month != 2:
+                    update_date = i['check_date'].replace(year=i['check_date'].year + 1)
+                else:
+                    update_date = i['check_date'].replace(day=28, year=i['check_date'].year + 1)
+
+            elif i['repeat_every'] == -3:
+                if i['check_date'].day >= 29 and i['check_date'].month + 1 == 2:
+                    update_date = i['check_date'].replace(day=28, month=i['check_date'].month + 1)
+                else:
+                    try:
+                        update_date = i['check_date'].replace(month=i['check_date'].month + 1)
+
+                    except ValueError:
+                        update_date = i['check_date'].replace(day=i['check_date'].day - 1,
+                                                              month=i['check_date'].month + 1)
+
+            else:
+                update_date = i['check_date'] + timedelta(days=i['repeat_every'])
+
+            if update_date.day == datetime.now().day:
+                self.cur.execute('UPDATE reminders SET check_date = %s WHERE id = %s', (update_date, i['id']))
+                self.conn.commit()

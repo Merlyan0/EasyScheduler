@@ -39,12 +39,27 @@ def every_minute() -> None:
 
     handler.send_reminders(datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
 
+    if datetime.now().hour == 0 and datetime.now().minute == 0 and datetime.now().second == 0:
+        handler.repeat_all()
+        time.sleep(1)
+
 
 # отправка подошедших по времени напоминаний
 every_minute()
 
+# попытка связи с серверами ВК; если ошибка - переподключение
+try:
+    event_list = longpoll.listen()
+
+except (BaseException, ):
+    vk_session = vk_api.VkApi(token=TOKEN)
+    vk = vk_session.get_api()
+    longpoll = VkBotLongPoll(vk_session, GROUP_ID)
+    event_list = longpoll.listen()
+
+
 # все приходящие с сервера события
-for event in longpoll.listen():
+for event in event_list:
 
     # пришло новое сообщение
     if event.type == VkBotEventType.MESSAGE_NEW:
@@ -67,6 +82,7 @@ for event in longpoll.listen():
                 audio = event.object.message["attachments"][0]['audio_message']['link_mp3']
                 message = handler.audio_converter(peer_id, audio)
 
+                # если расшифрованное аудио не является пустым
                 if message != '':
                     event.object.message["text"] = message
                     handler.reminder_analyzer(event)
@@ -145,9 +161,11 @@ for event in longpoll.listen():
                 else:
                     handler.reminder_analyzer(event)
 
-        except (BaseException, ):
+        except (BaseException, ) as e:
+            print(e)
             handler.unknown_error(event.object.message["peer_id"])
 
+    # нажата кнопка в inline меню
     elif event.type == VkBotEventType.MESSAGE_EVENT:
 
         # установить напоминание завершённым

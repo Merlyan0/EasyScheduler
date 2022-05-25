@@ -1,17 +1,25 @@
+# прочее
 import os
 from datetime import datetime
 from io import BytesIO
+import requests
 
+# работа с изображениями
 from PIL import Image, ImageDraw, ImageFont
 
-import requests
+# работа с аудио
 import speech_recognition as sr
 from pydub import AudioSegment
+
 
 r = sr.Recognizer()  # распознаватель голоса
 
 
 def check_date(date: str) -> datetime:
+    """
+    Проверить дату на соответствие формату.
+    :date: Дата в формате день.месяц.год.
+    """
     if len(date.split()[0].split('.')) == 3:
         a = datetime(year=int(date.split()[0].split('.')[2]), month=int(date.split()[0].split('.')[1]),
                      day=int(date.split()[0].split('.')[1]))
@@ -28,6 +36,11 @@ def check_date(date: str) -> datetime:
 
 
 def draw_timetable(reminders: list, authors_name: str) -> bytes:
+    """
+    Отрисовать фотографию расписания пользователя.
+    :reminders: список со словарями с напоминаниями.
+    :authors_name: имя автора напоминаний.
+    """
     addition_amount = len(reminders) - 1
 
     basic = Image.open('data/images/timetable3.jpg')
@@ -62,7 +75,10 @@ def draw_timetable(reminders: list, authors_name: str) -> bytes:
     font2 = ImageFont.truetype("data/fonts/cambria.ttf", 22)
 
     for i in range(len(reminders)):
-        drawer.text((22, 103 + 35 * i), reminders[i]['check_date'].strftime('%H:%M'), font=font1, fill='black')
+        if reminders[i]['need_notification'] == 0:
+            drawer.text((22, 103 + 35 * i), '———', font=font1, fill='black')
+        else:
+            drawer.text((22, 103 + 35 * i), reminders[i]['check_date'].strftime('%H:%M'), font=font1, fill='black')
         drawer.text((110, 95 + 35 * i), reminders[i]['title'], font=font2, fill='black')
 
     output = BytesIO()
@@ -72,23 +88,27 @@ def draw_timetable(reminders: list, authors_name: str) -> bytes:
 
 
 def speech_recognizer(audio: str) -> str:
-    to_scripts_path = os.getcwd() + '/data/scripts'
-
+    """
+    Распознать аудио сообщения.
+    :audio: ссылка на mp3 аудио в ВК.
+    """
     doc = requests.get(audio)
     filename = audio.split('/')[-1].split('.')[0]
 
-    with open(to_scripts_path + f'/temp/{filename}.mp3', 'wb') as f:
+    os.makedirs('temp', exist_ok=True)
+
+    with open(f'temp/{filename}.mp3', 'wb') as f:
         f.write(doc.content)
 
-    sound = AudioSegment.from_mp3(to_scripts_path + f'/temp/{filename}.mp3')
-    sound.export(to_scripts_path + f'/temp/{filename}.wav', format="wav")
+    sound = AudioSegment.from_mp3(f'temp/{filename}.mp3')
+    sound.export(f'temp/{filename}.wav', format="wav")
 
-    audio_ex = sr.AudioFile(to_scripts_path + f'/temp/{filename}.wav')
+    audio_ex = sr.AudioFile(f'temp/{filename}.wav')
 
     with audio_ex:
         audio_data = r.record(audio_ex)
 
-    os.remove(to_scripts_path + f'/temp/{filename}.mp3')
-    os.remove(to_scripts_path + f'/temp/{filename}.wav')
+    os.remove(f'temp/{filename}.mp3')
+    os.remove(f'temp/{filename}.wav')
 
     return r.recognize_google(audio_data, language='ru-RU')

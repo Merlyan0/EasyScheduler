@@ -20,6 +20,8 @@ class Date:
         self.changed_time = False
         self.changed_date = False
 
+        self.repeat_every = -1
+
     @classmethod
     def get_current_date(cls) -> datetime:
         """
@@ -116,6 +118,43 @@ class Date:
         self.update_month(compare_date.month)
         self.update_day(compare_date.day)
 
+    def check_time(self, hour: str, minute: str) -> bool:
+        """
+        Проверяет, возможно ли подобное время. Если да, то установит его.
+        """
+        if not hour.isdigit() or not minute.isdigit():
+            return False
+
+        if int(hour) > 23 or int(minute) > 59:
+            return False
+
+        self.update_hour(int(hour))
+        self.update_minute(int(minute))
+
+        return True
+
+    def check_date(self, day: str, month: str, year: str) -> bool:
+        """
+        Проверяет, возможна ли подобная дата. Если да, то установит её.
+        """
+        if not day.isdigit() or not month.isdigit() or not year.isdigit():
+            return False
+
+        if int(day) <= 0 or int(month) <= 0 or int(year) <= 0:
+            return False
+
+        if int(day) > 31 or int(month) > 12 or int(year) > 2099:
+            return False
+
+        if 1 <= int(year) <= 99:
+            year = 2000 + int(year)
+
+        self.update_day(int(day))
+        self.update_month(int(month))
+        self.update_year(int(year))
+
+        return True
+
     def update_year(self, year: int) -> None:
         """
         Обновить год в дате.
@@ -207,6 +246,7 @@ class Date:
         self.minute = 0
         self.changed_time = False
         self.changed_date = False
+        self.repeat_every = -1
 
     def final_date(self) -> datetime:
         """

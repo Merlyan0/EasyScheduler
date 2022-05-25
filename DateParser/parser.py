@@ -2,7 +2,6 @@ import pymorphy2
 
 from DateParser.classDate import Date
 
-
 # знаки пунктуации
 punctuation = ('.', ',', ';', ':', '?', '!', '-', '(', ')', '"', '\'')
 
@@ -35,7 +34,12 @@ token_words = ['год',
                'половина',
                'четверть',
 
-               'полночь']
+               'полночь',
+
+               'ежедневно',
+               'еженедельно',
+               'ежемесячно',
+               'ежегодно']
 
 # слова прошедшего времени
 past_words = ['назад', 'прошлый', 'прошедший', 'предыдущий', 'вчера', 'позавчера']
@@ -44,7 +48,7 @@ past_words = ['назад', 'прошлый', 'прошедший', 'преды�
 morph = pymorphy2.MorphAnalyzer()
 
 # последовательность обработки строки
-plan = ['month', 'relative_day', 'year', 'relative_date', 'weekday', 'time', 'day']
+plan = ['month', 'relative_day', 'year', 'relative_date', 'weekday', 'time', 'day', 'repeat']
 
 # экземпляр класса Date с найденной датой
 parsed_date = Date()
@@ -131,8 +135,8 @@ def analyze_string(starting_text) -> tuple:
                     # вид обрабатываемой строки: через месяц
                     elif i - 1 != -1 and normal_forms[i - 1] == 'через' and normal_forms[i] == 'месяц':
                         return 'Ошибка', 'Попробуйте указать явно количество дней ' \
-                                                               '(например, через 30 дней) ' \
-                                                               'или конкретную дату (например, 6 октября).'
+                                         '(например, через 30 дней) ' \
+                                         'или конкретную дату (например, 6 октября).'
 
                     # вид обрабатываемой строки: через день
                     elif i - 1 != -1 and normal_forms[i - 1] == 'через' and normal_forms[i] == 'день':
@@ -157,6 +161,10 @@ def analyze_string(starting_text) -> tuple:
                     # вид обрабатываемой строки: в понедельник|вторник...
                     elif i - 1 != -1 and normal_forms[i - 1] == 'в':
                         number = 0
+
+                    # вид обрабатываемой строки: в следующий понедельник|вторник...
+                    if i - 2 >= 0 and normal_forms[i - 2] == 'в':
+                        to_delete.append(i - 2)
 
                     # обновление даты
                     if number != -1 and normal_forms[i] in ['понедельник', 'вторник', 'среда', 'четверг',
@@ -197,6 +205,74 @@ def analyze_string(starting_text) -> tuple:
                         to_delete.append(i - 1)
                         to_delete.append(i)
 
+                    # вид обрабатываемой строки: через минуту
+                    elif i - 1 != -1 and normal_forms[i - 1] == 'через' and normal_forms[i] == 'минута':
+                        parsed_date.update_hour(parsed_date.get_current_date().hour)
+                        parsed_date.update_minute(parsed_date.get_current_date().minute + 1)
+                        to_delete.append(i - 1)
+                        to_delete.append(i)
+
+                    # вид обрабатываемой строки: через час
+                    elif i - 1 != -1 and normal_forms[i - 1] == 'через' and normal_forms[i] == 'час':
+                        parsed_date.update_minute(parsed_date.get_current_date().minute)
+                        parsed_date.update_hour(parsed_date.get_current_date().hour + 1)
+                        to_delete.append(i - 1)
+                        to_delete.append(i)
+
+                elif plan[p] == 'repeat':
+
+                    # вид обрабатываемой строки: каждый день
+                    if i - 1 != -1 and normal_forms[i - 1] == 'каждый' and normal_forms[i] == 'день':
+                        parsed_date.repeat_every = 1
+                        to_delete.append(i - 1)
+                        to_delete.append(i)
+
+                    # вид обрабатываемой строки: каждый понедельник|вторник
+                    elif i - 1 != -1 and normal_forms[i - 1] == 'каждый' and normal_forms[i] in \
+                            ['понедельник', 'вторник', 'среда', 'четверг', 'пятница', 'суббота', 'воскресенье']:
+                        parsed_date.repeat_every = 7
+                        parsed_date.update_weekday(0, normal_forms[i])
+                        to_delete.append(i - 1)
+                        to_delete.append(i)
+
+                    # вид обрабатываемой строки: каждую неделю
+                    elif i - 1 != -1 and normal_forms[i - 1] == 'каждый' and normal_forms[i] == 'неделя':
+                        parsed_date.repeat_every = 7
+                        to_delete.append(i - 1)
+                        to_delete.append(i)
+
+                    # вид обрабатываемой строки: каждый месяц
+                    elif i - 1 != -1 and normal_forms[i - 1] == 'каждый' and normal_forms[i] == 'месяц':
+                        parsed_date.repeat_every = -3
+                        to_delete.append(i - 1)
+                        to_delete.append(i)
+
+                    # вид обрабатываемой строки: каждый год
+                    elif i - 1 != -1 and normal_forms[i - 1] == 'каждый' and normal_forms[i] == 'год':
+                        parsed_date.repeat_every = -2
+                        to_delete.append(i - 1)
+                        to_delete.append(i)
+
+                    # вид обрабатываемой строки: ежедневно
+                    elif normal_forms[i] == 'ежедневно':
+                        parsed_date.repeat_every = 1
+                        to_delete.append(i)
+
+                    # вид обрабатываемой строки: еженедельно
+                    elif normal_forms[i] == 'еженедельно':
+                        parsed_date.repeat_every = 7
+                        to_delete.append(i)
+
+                    # вид обрабатываемой строки: ежемесячно
+                    elif normal_forms[i] == 'ежемесячно':
+                        parsed_date.repeat_every = -3
+                        to_delete.append(i)
+
+                    # вид обрабатываемой строки: ежегодно
+                    elif normal_forms[i] == 'ежегодно':
+                        parsed_date.repeat_every = -2
+                        to_delete.append(i)
+
             # обработка чисел
             elif temp_list2[i].isdigit():
 
@@ -232,6 +308,32 @@ def analyze_string(starting_text) -> tuple:
                     elif i - 1 != -1 and i + 1 < len(normal_forms) and \
                             normal_forms[i - 1] == 'через' and normal_forms[i + 1] == 'день':
                         parsed_date.after_days(int(temp_list2[i]))
+                        to_delete.append(i - 1)
+                        to_delete.append(i)
+                        to_delete.append(i + 1)
+
+                elif plan[p] == 'repeat':
+
+                    # вид обрабатываемой строки: каждые ... дней
+                    if i - 1 != -1 and i + 1 < len(normal_forms) and \
+                            normal_forms[i - 1] == 'каждый' and normal_forms[i + 1] == 'день':
+                        parsed_date.repeat_every = int(temp_list2[i])
+                        to_delete.append(i - 1)
+                        to_delete.append(i)
+                        to_delete.append(i + 1)
+
+                    # вид обрабатываемой строки: каждые ... недель
+                    elif i - 1 != -1 and i + 1 < len(normal_forms) and \
+                            normal_forms[i - 1] == 'каждый' and normal_forms[i + 1] == 'неделя':
+                        parsed_date.repeat_every = int(temp_list2[i]) * 7
+                        to_delete.append(i - 1)
+                        to_delete.append(i)
+                        to_delete.append(i + 1)
+
+                    # вид обрабатываемой строки: каждые ... лет
+                    elif i - 1 != -1 and i + 1 < len(normal_forms) and \
+                            normal_forms[i - 1] == 'каждый' and normal_forms[i + 1] == 'год':
+                        parsed_date.repeat_every = int(temp_list2[i]) * 365
                         to_delete.append(i - 1)
                         to_delete.append(i)
                         to_delete.append(i + 1)
@@ -321,9 +423,11 @@ def analyze_string(starting_text) -> tuple:
                             if not 1 <= int(temp_list2[i]) <= 23:
                                 return 'Ошибка', 'Вы ввели час, равный числу, большему 23.'
 
-                            parsed_date.update_hour(int(temp_list2[i]))
-                            to_delete.append(i)
-                            to_delete.append(i - 1)
+                            if (i + 1 < len(normal_forms) and normal_forms[i + 1] != 'год') or \
+                                    i + 1 == len(normal_forms):
+                                parsed_date.update_hour(int(temp_list2[i]))
+                                to_delete.append(i)
+                                to_delete.append(i - 1)
 
                     # обработка дня
                     elif plan[p] == 'day':
@@ -346,11 +450,30 @@ def analyze_string(starting_text) -> tuple:
 
             # вид обрабатываемой строки: (в) 12:34
             elif len(temp_list2[i].split(':')) == 2:
-                parsed_date.update_hour(int(temp_list2[i].split(':')[0]))
-                parsed_date.update_minute(int(temp_list2[i].split(':')[1]))
-                to_delete.append(i)
-                if i - 1 != -1 and normal_forms[i - 1] == 'в':
-                    to_delete.append(i - 1)
+                if parsed_date.check_time(temp_list2[i].split(':')[0], temp_list2[i].split(':')[1]):
+                    to_delete.append(i)
+                    if i - 1 != -1 and normal_forms[i - 1] == 'в':
+                        to_delete.append(i - 1)
+
+            # вид обрабатываемой строки: (в) 12-34
+            elif len(temp_list2[i].split('-')) == 2:
+                if parsed_date.check_time(temp_list2[i].split('-')[0], temp_list2[i].split('-')[1]):
+                    to_delete.append(i)
+                    if i - 1 != -1 and normal_forms[i - 1] == 'в':
+                        to_delete.append(i - 1)
+
+            # вид обрабатываемой строки: (в) 12.34
+            elif len(temp_list2[i].split('.')) == 2:
+                if parsed_date.check_time(temp_list2[i].split('.')[0], temp_list2[i].split('.')[1]):
+                    to_delete.append(i)
+                    if i - 1 != -1 and normal_forms[i - 1] == 'в':
+                        to_delete.append(i - 1)
+
+            # вид обрабатываемой строки: день.месяц.год
+            elif len(temp_list2[i].split('.')) == 3:
+                if parsed_date.check_date(temp_list2[i].split('.')[0], temp_list2[i].split('.')[1],
+                                          temp_list2[i].split('.')[2]):
+                    to_delete.append(i)
 
     # напоминание
     finished_list = list()
@@ -360,4 +483,4 @@ def analyze_string(starting_text) -> tuple:
         if i not in to_delete:
             finished_list.append(temp_list2[i])
 
-    return parsed_date.final_date(), finished_list, parsed_date.get_changed()
+    return parsed_date.final_date(), finished_list, parsed_date.get_changed(), parsed_date.repeat_every

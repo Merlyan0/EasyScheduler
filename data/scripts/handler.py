@@ -1,17 +1,26 @@
+# прочее
 import json
 import operator
 from datetime import datetime, timedelta
-
 import requests
+
+# VK API
 from vk_api.utils import get_random_id
 
-from DateParser.parser import analyze_string
+# скрипт анализа строки на наличие даты
+from DateParser.parser import analyze_string, morph
+
+# настройки из конфиг файла
 from config import SUPPORT_ID, DRAW_LIMIT, MAX_SYMBOLS, VOICE_LIMIT
 
+# сообщения
 from data.scripts import messages
 from data.scripts.messages import *
 
+# доп. функции
 from data.scripts.functions import check_date, draw_timetable, speech_recognizer
+
+# клавиатуры
 from data.scripts.keyboards import *
 
 
@@ -26,11 +35,9 @@ class BotHandler:
         self.vk = vk
         self.db = db
 
-    def check_user_db(self, user_id: int) -> None:
-        """
-        Проверить наличие пользователя в БД.
-        """
-        self.db.add_user(user_id)
+        # для последующего склонения
+        self.day_word = morph.parse('день')[0]
+        self.every_word = morph.parse('каждый')[0]
 
     def start(self, peer_id: int) -> None:
         """
@@ -40,6 +47,12 @@ class BotHandler:
                               message=MESS_WELCOME,
                               random_id=get_random_id(),
                               keyboard=KB_MAIN_MENU.get_keyboard())
+
+    def check_user_db(self, user_id: int) -> None:
+        """
+        Проверить наличие пользователя в БД.
+        """
+        self.db.add_user(user_id)
 
     def sticker_error(self, peer_id: int) -> None:
         """
@@ -56,6 +69,15 @@ class BotHandler:
         """
         self.vk.messages.send(peer_id=peer_id,
                               message=MESS_EMPTY_ERROR,
+                              random_id=get_random_id(),
+                              keyboard=KB_MAIN_MENU.get_keyboard())
+
+    def unknown_error(self, peer_id: int) -> None:
+        """
+        Возникла неизвестная ошибка.
+        """
+        self.vk.messages.send(peer_id=peer_id,
+                              message=MESS_UNKNOWN_ERROR,
                               random_id=get_random_id(),
                               keyboard=KB_MAIN_MENU.get_keyboard())
 
@@ -77,14 +99,14 @@ class BotHandler:
                               random_id=get_random_id(),
                               keyboard=KB_BACK.get_keyboard())
 
-    def unknown_error(self, peer_id: int) -> None:
+    def manual_mode(self, peer_id: int) -> None:
         """
-        Возникла неизвестная ошибка.
+        Работа меню ручного ввода.
         """
         self.vk.messages.send(peer_id=peer_id,
-                              message=MESS_UNKNOWN_ERROR,
+                              message=MESS_MANUAL_MODE,
                               random_id=get_random_id(),
-                              keyboard=KB_MAIN_MENU.get_keyboard())
+                              keyboard=KB_MANUAL_MODE.get_keyboard())
 
     def support_step1(self, peer_id: int) -> None:
         """
@@ -110,15 +132,6 @@ class BotHandler:
                               message=MESS_SUPPORT_2,
                               random_id=get_random_id(),
                               keyboard=KB_MAIN_MENU.get_keyboard())
-
-    def manual_mode(self, peer_id: int) -> None:
-        """
-        Работа меню ручного ввода.
-        """
-        self.vk.messages.send(peer_id=peer_id,
-                              message=MESS_MANUAL_MODE,
-                              random_id=get_random_id(),
-                              keyboard=KB_MANUAL_MODE.get_keyboard())
 
     def finish_step1(self, peer_id: int) -> None:
         """
@@ -189,35 +202,6 @@ class BotHandler:
 
             except (BaseException,):
                 self.main_menu(event.object.message['peer_id'])
-
-    def timetable(self, peer_id: int, date: datetime) -> None:
-        """
-        Вывод расписание какого-либо пользователя.
-        """
-        a = self.db.get_author_date_reminders(peer_id, date)
-
-        if a != ():
-            a.sort(key=operator.itemgetter('check_date'))
-            general, with_time = list(), list()
-
-            for i in a:
-                title = i['title'].encode('unicode-escape').replace(b'\\\\', b'\\').decode('unicode-escape')
-
-                if i['need_notification'] == 0 and i['check_date'].strftime('%H:%M') == '00:00':
-                    general.append('-  "' + title + '" \n')
-                else:
-                    with_time.append('-  "' + title + '"' + i['check_date'].strftime(' // %H:%M') + ' \n')
-
-            self.vk.messages.send(peer_id=peer_id,
-                                  message=MESS_TIMETABLE.substitute(general=''.join(general),
-                                                                    with_time=''.join(with_time)),
-                                  random_id=get_random_id(),
-                                  keyboard=KB_TIMETABLE_MENU.get_keyboard())
-        else:
-            self.vk.messages.send(peer_id=peer_id,
-                                  message=MESS_NO_REMINDERS,
-                                  random_id=get_random_id(),
-                                  keyboard=KB_MAIN_MENU.get_keyboard())
 
     def create_manually_step1(self, peer_id: int) -> None:
         """
@@ -349,6 +333,7 @@ class BotHandler:
             event_att = event.object.message["attachments"]
             attachments = list()
 
+            # формирование вложений для БД
             for i in event_att:
                 att_type = i['type']
                 owner_id = str(i[att_type]['owner_id'])
@@ -362,7 +347,8 @@ class BotHandler:
                     attachments.append(att_type + owner_id + '_' + att_id + '_' + access_key)
 
             self.db.add_to_db(title=title, author=event.object.message["from_id"], attachments=', '.join(attachments),
-                              check_date=a[0].strftime('%Y-%m-%d %H:%M:%S'), need_notification=need_notification)
+                              check_date=a[0].strftime('%Y-%m-%d %H:%M:%S'), need_notification=need_notification,
+                              repeat_every=a[3])
 
             if len(title) > MAX_SYMBOLS:
                 self.vk.messages.send(peer_id=event.object.message["peer_id"],
@@ -377,29 +363,60 @@ class BotHandler:
         for i in self.db.get_actual_reminders(date, is_done=True):
             title = i['title'].encode('unicode-escape').replace(b'\\\\', b'\\').decode('unicode-escape')
 
-            keyboard = VkKeyboard(one_time=False, inline=True)
+            if i['repeat_every'] == -1:
+                keyboard = VkKeyboard(one_time=False, inline=True)
 
-            keyboard.add_callback_button(
-                label="Завершить",
-                color=VkKeyboardColor.SECONDARY,
-                payload={"type": "set_finish", "id": i['id']})
+                keyboard.add_callback_button(
+                    label="Завершить",
+                    color=VkKeyboardColor.SECONDARY,
+                    payload={"type": "set_finish", "id": i['id']})
 
-            keyboard.add_line()
+                keyboard.add_line()
 
-            keyboard.add_callback_button(
-                label="Отложить на 5 мин.",
-                color=VkKeyboardColor.SECONDARY,
-                payload={"type": "set_delayed", "id": i['id']})
+                keyboard.add_callback_button(
+                    label="Отложить на 5 мин.",
+                    color=VkKeyboardColor.SECONDARY,
+                    payload={"type": "set_delayed", "id": i['id']})
 
-            self.vk.messages.send(user_id=i['author'],
-                                  message=MESS_REMIND.substitute(title=title),
-                                  attachment=i['attachments'].split(', '),
-                                  random_id=get_random_id(),
-                                  keyboard=keyboard.get_keyboard())
+                self.vk.messages.send(user_id=i['author'],
+                                      message=MESS_REMIND.substitute(title=title),
+                                      attachment=i['attachments'].split(', '),
+                                      random_id=get_random_id(),
+                                      keyboard=keyboard.get_keyboard())
 
-            self.db.set_done(i['id'])
+                self.db.set_done(i['id'])
+
+            else:
+                if i['repeat_every'] == -2:
+                    self.vk.messages.send(user_id=i['author'],
+                                          message=MESS_REMIND_REPEAT.substitute(title=title,
+                                                                                repeat_every='каждый год'),
+                                          attachment=i['attachments'].split(', '),
+                                          random_id=get_random_id())
+
+                elif i['repeat_every'] == -3:
+                    self.vk.messages.send(user_id=i['author'],
+                                          message=MESS_REMIND_REPEAT.substitute(title=title,
+                                                                                repeat_every='каждый месяц'),
+                                          attachment=i['attachments'].split(', '),
+                                          random_id=get_random_id())
+                else:
+                    e = self.every_word.make_agree_with_number(i['repeat_every']).word
+                    d = self.day_word.make_agree_with_number(i['repeat_every']).word
+                    e = e if e != 'каждых' else 'каждые'
+                    repeat_every = e + ' ' + str(i['repeat_every']) + ' ' + d
+                    self.vk.messages.send(user_id=i['author'],
+                                          message=MESS_REMIND_REPEAT.substitute(title=title,
+                                                                                repeat_every=repeat_every),
+                                          attachment=i['attachments'].split(', '),
+                                          random_id=get_random_id())
+
+            self.db.repeat(i['id'])
 
     def set_delayed(self, event, reminder_id: int) -> None:
+        """
+        Установить напоминание отложенным на 5 минут.
+        """
         try:
             c_m_i = event["conversation_message_id"]
             prev_mess = self.vk.messages.getByConversationMessageId(peer_id=event["peer_id"],
@@ -438,10 +455,13 @@ class BotHandler:
 
                 self.db.set_delayed(reminder_id)
 
-        except (BaseException, ):
+        except (BaseException,):
             self.unknown_error(event["peer_id"])
 
     def set_finished(self, event, reminder_id: int) -> None:
+        """
+        Установить напоминание завершённым.
+        """
         try:
             c_m_i = event["conversation_message_id"]
             prev_mess = self.vk.messages.getByConversationMessageId(peer_id=event["peer_id"],
@@ -462,6 +482,35 @@ class BotHandler:
 
         except (BaseException,):
             self.unknown_error(event["peer_id"])
+
+    def timetable(self, peer_id: int, date: datetime) -> None:
+        """
+        Вывод расписание какого-либо пользователя.
+        """
+        a = self.db.get_author_date_reminders(peer_id, date)
+
+        if a != ():
+            a.sort(key=operator.itemgetter('check_date'))
+            general, with_time = list(), list()
+
+            for i in a:
+                title = i['title'].encode('unicode-escape').replace(b'\\\\', b'\\').decode('unicode-escape')
+
+                if i['need_notification'] == 0 and i['check_date'].strftime('%H:%M') == '00:00':
+                    general.append('-  "' + title + '" \n')
+                else:
+                    with_time.append('-  "' + title + '"' + i['check_date'].strftime(' // %H:%M') + ' \n')
+
+            self.vk.messages.send(peer_id=peer_id,
+                                  message=MESS_TIMETABLE.substitute(general=''.join(general),
+                                                                    with_time=''.join(with_time)),
+                                  random_id=get_random_id(),
+                                  keyboard=KB_TIMETABLE_MENU.get_keyboard())
+        else:
+            self.vk.messages.send(peer_id=peer_id,
+                                  message=MESS_NO_REMINDERS,
+                                  random_id=get_random_id(),
+                                  keyboard=KB_MAIN_MENU.get_keyboard())
 
     def drawing_tt(self, peer_id: int, user: dict) -> None:
         """
@@ -501,28 +550,6 @@ class BotHandler:
                                   random_id=get_random_id(),
                                   keyboard=KB_MAIN_MENU.get_keyboard())
 
-    def upload_photo(self, peer_id: int, img: dict) -> str:
-        """
-        Загрузить фото на сервер ВКонтакте.
-        """
-        data = self.vk.photos.getMessagesUploadServer(peer_id=peer_id)
-        url = data['upload_url']
-
-        r = requests.post(url, files=img)
-        r = json.loads(r.text)
-
-        server = r['server']
-        photo = r['photo']
-        photo_hash = r['hash']
-
-        photo_id = self.vk.photos.saveMessagesPhoto(server=server, photo=photo, hash=photo_hash)
-        photo_id = photo_id[0]
-
-        photo_url = 'photo' + str(photo_id['owner_id']) + '_' + str(photo_id['id']) + '_' + \
-                    str(photo_id['access_key'])
-
-        return photo_url
-
     def audio_converter(self, peer_id: int, audio: str) -> str:
         """
         Обработка голосовых сообщений.
@@ -547,9 +574,11 @@ class BotHandler:
                                   keyboard=KB_MAIN_MENU.get_keyboard())
             return ''
 
-    """
-    СИСТЕМНЫЕ МЕТОДЫ
-    """
+    def repeat_all(self) -> None:
+        """
+        Обновить дату в напоминаниях.
+        """
+        self.db.repeat_all()
 
     @classmethod
     def get_message(cls, message: str) -> str:
@@ -557,3 +586,25 @@ class BotHandler:
         Получить сообщение по названию переменной.
         """
         return getattr(messages, message)
+
+    def upload_photo(self, peer_id: int, img: dict) -> str:
+        """
+        Загрузить фото на сервер ВКонтакте.
+        """
+        data = self.vk.photos.getMessagesUploadServer(peer_id=peer_id)
+        url = data['upload_url']
+
+        r = requests.post(url, files=img)
+        r = json.loads(r.text)
+
+        server = r['server']
+        photo = r['photo']
+        photo_hash = r['hash']
+
+        photo_id = self.vk.photos.saveMessagesPhoto(server=server, photo=photo, hash=photo_hash)
+        photo_id = photo_id[0]
+
+        photo_url = 'photo' + str(photo_id['owner_id']) + '_' + str(photo_id['id']) + '_' + \
+                    str(photo_id['access_key'])
+
+        return photo_url
