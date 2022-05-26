@@ -104,7 +104,7 @@ def analyze_string(starting_text) -> tuple:
                                            'сентябрь', 'октябрь', 'ноябрь', 'декабрь']:
                         parsed_date.update_month_word(normal_forms[i])
 
-                    to_delete.append(i)
+                        to_delete.append(i)
 
                 # сегодня, завтра, послезавтра
                 elif plan[p] == 'relative_day':
@@ -112,16 +112,17 @@ def analyze_string(starting_text) -> tuple:
                     # вид обрабатываемой строки: послезавтра
                     if normal_forms[i] == 'послезавтра':
                         parsed_date.update_day(parsed_date.get_current_date().day + 2)
+                        to_delete.append(i)
 
                     # вид обрабатываемой строки: завтра
                     elif normal_forms[i] == 'завтра':
                         parsed_date.update_day(parsed_date.get_current_date().day + 1)
+                        to_delete.append(i)
 
                     # вид обрабатываемой строки: сегодня
                     elif normal_forms[i] == 'сегодня':
                         parsed_date.update_day(parsed_date.get_current_date().day)
-
-                    to_delete.append(i)
+                        to_delete.append(i)
 
                 # обработка выражений вида: через..., на следующей неделе...
                 elif plan[p] == 'relative_date':
@@ -148,30 +149,31 @@ def analyze_string(starting_text) -> tuple:
                 elif plan[p] == 'weekday':
                     number = -1
 
-                    # вид обрабатываемой строки: следующий|будущий понедельник|вторник...
-                    if i - 1 != -1 and normal_forms[i - 1] in ['следующий', 'будущий']:
-                        number = 1
+                    if normal_forms[i] in ['понедельник', 'вторник', 'среда', 'четверг',
+                                           'пятница', 'суббота', 'воскресенье']:
 
-                    # вид обрабатываемой строки: ближайший|грядущий... понедельник|вторник...
-                    elif i - 1 != -1 \
-                            and normal_forms[i - 1] in ['ближайший', 'грядущий', 'этот', 'текущий', 'нынешний'] \
-                            and plan[p] == 'weekday':
-                        number = 0
+                        # вид обрабатываемой строки: следующий|будущий понедельник|вторник...
+                        if i - 1 != -1 and normal_forms[i - 1] in ['следующий', 'будущий']:
+                            number = 1
 
-                    # вид обрабатываемой строки: в понедельник|вторник...
-                    elif i - 1 != -1 and normal_forms[i - 1] == 'в':
-                        number = 0
+                        # вид обрабатываемой строки: ближайший|грядущий... понедельник|вторник...
+                        elif i - 1 != -1 and normal_forms[i - 1] in ['ближайший', 'грядущий', 'этот',
+                                                                     'текущий', 'нынешний']:
+                            number = 0
 
-                    # вид обрабатываемой строки: в следующий понедельник|вторник...
-                    if i - 2 >= 0 and normal_forms[i - 2] == 'в':
-                        to_delete.append(i - 2)
+                        # вид обрабатываемой строки: в понедельник|вторник...
+                        elif i - 1 != -1 and normal_forms[i - 1] == 'в':
+                            number = 0
 
-                    # обновление даты
-                    if number != -1 and normal_forms[i] in ['понедельник', 'вторник', 'среда', 'четверг',
-                                                            'пятница', 'суббота', 'воскресенье']:
-                        parsed_date.update_weekday(number, normal_forms[i])
-                        to_delete.append(i - 1)
-                        to_delete.append(i)
+                        # вид обрабатываемой строки: в следующий понедельник|вторник...
+                        if i - 2 >= 0 and normal_forms[i - 2] == 'в' and number != -1:
+                            to_delete.append(i - 2)
+
+                        # обновление даты
+                        if number != -1:
+                            parsed_date.update_weekday(number, normal_forms[i])
+                            to_delete.append(i - 1)
+                            to_delete.append(i)
 
                 # обработка времени в словесном формате без чисел (в полночь, в час...)
                 elif plan[p] == 'time':
@@ -481,6 +483,11 @@ def analyze_string(starting_text) -> tuple:
     # запись самого напоминания
     for i in range(len(temp_list2)):
         if i not in to_delete:
-            finished_list.append(temp_list2[i])
+            finished_list.append(start_list[i])
+
+    if len(finished_list) == 0:
+        return 'Ошибка', 'Не удалось распознать напоминание в сообщении.'
+
+    finished_list[0] = finished_list[0].capitalize()
 
     return parsed_date.final_date(), finished_list, parsed_date.get_changed(), parsed_date.repeat_every

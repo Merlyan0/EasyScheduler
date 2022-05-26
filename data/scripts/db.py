@@ -49,6 +49,8 @@ class DataBase:
                                  created_date datetime);""")
         self.conn.commit()
 
+        self.conn.ping()
+
         print('EasyScheduler >', f'Подключение к базе данных {DB_DATABASE} успешно.')
 
     def add_to_db(self, title=None, author=None, attachments=None, check_date=None, repeat_every=-1,
@@ -56,6 +58,8 @@ class DataBase:
         """
         Добавление нового значения в базу данных.
         """
+        self.conn.ping()
+
         title = ''.join([i.encode('unicode-escape').decode('utf-8') if is_emoji(i) else i for i in title])
 
         self.cur.execute(f"""INSERT INTO reminders(
@@ -76,10 +80,12 @@ class DataBase:
         """
         Получить актуальные напоминания.
         """
+        self.conn.ping()
+
         if is_done:
             self.cur.execute(f"SELECT * FROM reminders WHERE finished=0 and check_date<=%s and need_notification=1 and "
                              f"done=0",
-                             (date_and_time, ))
+                             (date_and_time,))
 
             return self.cur.fetchall()
 
@@ -92,6 +98,8 @@ class DataBase:
         """
         Получить напоминания определенного автора по определенной дате.
         """
+        self.conn.ping()
+
         self.cur.execute(f"""SELECT * FROM reminders WHERE finished=0 and check_date
                          >=%s AND check_date <=%s and author=%s""",
                          (date.strftime('%Y-%m-%d 00:00:00'), date.strftime('%Y-%m-%d 23:59:59'), author))
@@ -102,6 +110,8 @@ class DataBase:
         """
         Получить напоминания от определенного автора.
         """
+        self.conn.ping()
+
         self.cur.execute(f"""SELECT * FROM reminders WHERE finished=0 and author=%s""",
                          (author,))
 
@@ -111,6 +121,8 @@ class DataBase:
         """
         Задание даты для последнего напоминания пользователя.
         """
+        self.conn.ping()
+
         self.cur.execute(f"SELECT * FROM reminders WHERE author={author} ORDER BY id DESC LIMIT 1")
         reminder_id = self.cur.fetchone()['id']
 
@@ -126,6 +138,8 @@ class DataBase:
         """
         Отметить напоминания завершенными.
         """
+        self.conn.ping()
+
         for i in list_of_id:
             self.cur.execute('UPDATE reminders SET finished = 1 WHERE id = %s', (i,))
             self.conn.commit()
@@ -134,19 +148,23 @@ class DataBase:
         """
         Отметить напоминания отложенными.
         """
+        self.conn.ping()
+
         self.cur.execute('SELECT * FROM reminders WHERE id = %s', (reminder_id,))
         update_date = self.cur.fetchone()['check_date'] + timedelta(minutes=5)
 
         self.cur.execute('UPDATE reminders SET check_date = %s WHERE id = %s', (update_date, reminder_id))
         self.conn.commit()
 
-        self.cur.execute('UPDATE reminders SET done = 0 WHERE id = %s', (reminder_id, ))
+        self.cur.execute('UPDATE reminders SET done = 0 WHERE id = %s', (reminder_id,))
         self.conn.commit()
 
     def get_reminder(self, reminder_id: int) -> tuple:
         """
         Получить напоминание по id.
         """
+        self.conn.ping()
+
         self.cur.execute('SELECT * FROM reminders WHERE id = %s', (reminder_id,))
         return self.cur.fetchone()
 
@@ -154,6 +172,8 @@ class DataBase:
         """
         Добавить пользователя в БД.
         """
+        self.conn.ping()
+
         self.cur.execute('SELECT * FROM users WHERE user_id = %s', (user_id,))
         if not self.cur.fetchone():
             self.cur.execute(f"""INSERT INTO users(
@@ -170,6 +190,8 @@ class DataBase:
         """
         Возвращает лимит рисования конкретного пользователя в БД.
         """
+        self.conn.ping()
+
         self.cur.execute('SELECT * FROM users WHERE user_id = %s', (user_id,))
         return self.cur.fetchone()['draw_limit']
 
@@ -177,6 +199,8 @@ class DataBase:
         """
         Возвращает лимит аудио сообщений конкретного пользователя в БД.
         """
+        self.conn.ping()
+
         self.cur.execute('SELECT * FROM users WHERE user_id = %s', (user_id,))
         return self.cur.fetchone()['voice_limit']
 
@@ -184,6 +208,8 @@ class DataBase:
         """
         Добавить n-ное количество попыток к лимиту на рисование пользователя.
         """
+        self.conn.ping()
+
         self.cur.execute('SELECT * FROM users WHERE user_id = %s', (user_id,))
         update_limit = self.cur.fetchone()['draw_limit'] + n
 
@@ -194,6 +220,8 @@ class DataBase:
         """
         Добавить n-ное количество попыток к лимиту на голосовые сообщения пользователя.
         """
+        self.conn.ping()
+
         self.cur.execute('SELECT * FROM users WHERE user_id = %s', (user_id,))
         update_limit = self.cur.fetchone()['voice_limit'] + n
 
@@ -204,6 +232,8 @@ class DataBase:
         """
         Каждодневное обновление лимитов у пользователей.
         """
+        self.conn.ping()
+
         self.cur.execute('SELECT * FROM users WHERE user_id = %s', (user_id,))
 
         if self.cur.fetchone()['last_update'].strftime("%d.%m.%Y") != datetime.now().strftime("%d.%m.%Y"):
@@ -220,14 +250,18 @@ class DataBase:
         """
         Отметить напоминание "напомненным".
         """
-        self.cur.execute('UPDATE reminders SET done = 1 WHERE id = %s', (reminder_id, ))
+        self.conn.ping()
+
+        self.cur.execute('UPDATE reminders SET done = 1 WHERE id = %s', (reminder_id,))
         self.conn.commit()
 
     def repeat(self, reminder_id: int) -> None:
         """
         Заменить дату напоминания на необходимую дату его повтора.
         """
-        self.cur.execute('SELECT * FROM reminders WHERE id = %s', (reminder_id, ))
+        self.conn.ping()
+
+        self.cur.execute('SELECT * FROM reminders WHERE id = %s', (reminder_id,))
         reminder = self.cur.fetchone()
         repeat_every = reminder['repeat_every']
         date = reminder['check_date']
@@ -260,6 +294,8 @@ class DataBase:
         """
         Заменить дату у всех неотмеченных напоминаний.
         """
+        self.conn.ping()
+
         self.cur.execute('SELECT * FROM reminders WHERE need_notification = 0 and finished = 0')
 
         for i in self.cur.fetchall():

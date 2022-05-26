@@ -272,7 +272,7 @@ class BotHandler:
 
         # DateParser не нашел даты и времени в сообщении
         elif a[2]['date'] is False and a[2]['time'] is False:
-            title = ' '.join(a[1]).capitalize()
+            title = ' '.join(a[1])
 
             self.vk.messages.send(peer_id=event.object.message["peer_id"],
                                   message=MESS_REMINDER_RECEIVED_NO_DATE.substitute(title=title),
@@ -283,7 +283,7 @@ class BotHandler:
 
         # DateParser не нашел времени в сообщении
         elif a[2]['time'] is False:
-            title = ' '.join(a[1]).capitalize()
+            title = ' '.join(a[1])
             time = a[0].strftime('%d.%m.%Y')
 
             now_date = datetime.now().strftime('%d.%m.%Y %H:%M')
@@ -308,7 +308,7 @@ class BotHandler:
 
         # DateParser обнаружил всё необходимое
         else:
-            title = ' '.join(a[1]).capitalize()
+            title = ' '.join(a[1])
             time = a[0].strftime('%d.%m.%Y в %H:%M')
 
             now_date = datetime.now().strftime('%d.%m.%Y %H:%M')
