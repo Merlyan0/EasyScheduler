@@ -5,7 +5,7 @@ from datetime import datetime
 
 # VK API
 import vk_api
-from vk_api.bot_longpoll import VkBotLongPoll, VkBotEventType
+from vk_api.bot_longpoll import VkBotEventType
 
 # работа с базой данных
 from data.scripts.db import DataBase
@@ -16,10 +16,14 @@ from data.scripts.handler import BotHandler
 # настройки из конфига
 from config import *
 
+# безопасный класс для подключения к LongPoll
+from data.scripts.secureLongPoll import SecureVkBotLongPoll
+
+
 # подключение к сервисам API ВКонтакте
 vk_session = vk_api.VkApi(token=TOKEN)
 vk = vk_session.get_api()
-longpoll = VkBotLongPoll(vk_session, GROUP_ID)
+longpoll = SecureVkBotLongPoll(vk_session, GROUP_ID)
 
 # подключение к базе данных
 db = DataBase()
@@ -47,19 +51,8 @@ def every_minute() -> None:
 # отправка подошедших по времени напоминаний
 every_minute()
 
-# попытка связи с серверами ВК; если ошибка - переподключение
-try:
-    event_list = longpoll.listen()
-
-except (BaseException, ):
-    vk_session = vk_api.VkApi(token=TOKEN)
-    vk = vk_session.get_api()
-    longpoll = VkBotLongPoll(vk_session, GROUP_ID)
-    event_list = longpoll.listen()
-
-
 # все приходящие с сервера события
-for event in event_list:
+for event in longpoll.listen():
 
     # пришло новое сообщение
     if event.type == VkBotEventType.MESSAGE_NEW:
@@ -162,16 +155,29 @@ for event in event_list:
                     handler.reminder_analyzer(event)
 
         except (BaseException, ) as e:
-            print(e)
-            handler.unknown_error(event.object.message["peer_id"])
+            try:
+                print(e)
+                handler.unknown_error(event.object.message["peer_id"])
+
+            except (BaseException, ):
+                print('Произошла неизвестная ошибка.')
 
     # нажата кнопка в inline меню
     elif event.type == VkBotEventType.MESSAGE_EVENT:
 
-        # установить напоминание завершённым
-        if event.object.payload.get("type") == "set_finish":
-            handler.set_finished(event.object, event.object.payload.get("id"))
+        try:
+            # установить напоминание завершённым
+            if event.object.payload.get("type") == "set_finish":
+                handler.set_finished(event.object, event.object.payload.get("id"))
 
-        # отложить напоминание на 5 минут
-        elif event.object.payload.get("type") == "set_delayed":
-            handler.set_delayed(event.object, event.object.payload.get("id"))
+            # отложить напоминание на 5 минут
+            elif event.object.payload.get("type") == "set_delayed":
+                handler.set_delayed(event.object, event.object.payload.get("id"))
+
+        except (BaseException, ) as e:
+            try:
+                print(e)
+                handler.unknown_error(event.object.message["peer_id"])
+
+            except (BaseException, ):
+                print('Произошла неизвестная ошибка.')
