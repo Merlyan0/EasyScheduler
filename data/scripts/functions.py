@@ -35,7 +35,7 @@ def check_date(date: str) -> datetime:
     return a
 
 
-def draw_timetable(reminders: list, authors_name: str) -> bytes:
+def draw_timetable(reminders: list, date: datetime, authors_name: str) -> bytes:
     """
     Отрисовать фотографию расписания пользователя.
     :reminders: список со словарями с напоминаниями.
@@ -64,7 +64,7 @@ def draw_timetable(reminders: list, authors_name: str) -> bytes:
 
     font = ImageFont.truetype("data/fonts/framd.ttf", 34)
     drawer = ImageDraw.Draw(timetable)
-    drawer.text((271, 15), datetime.now().strftime('%d.%m.%Y'), font=font, fill='#808080')
+    drawer.text((271, 15), date.strftime('%d.%m.%Y'), font=font, fill='#808080')
 
     font = ImageFont.truetype("data/fonts/framd.ttf", 19)
     drawer.text((547, 30), "EasyScheduler", font=font, fill='#808080')
@@ -112,3 +112,11 @@ def speech_recognizer(audio: str) -> str:
     os.remove(f'temp/{filename}.wav')
 
     return r.recognize_google(audio_data, language='ru-RU')
+
+
+def get_date_from_message(message: str) -> datetime:
+    """
+    Получить дату из сообщения, если возможно.
+    """
+    a = list(map(int, message.split('.')))
+    return datetime(a[2] if a[2] >= 2000 else 2000 + a[2], a[1], a[0])

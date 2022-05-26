@@ -501,18 +501,26 @@ class BotHandler:
                 else:
                     with_time.append('-  "' + title + '"' + i['check_date'].strftime(' // %H:%M') + ' \n')
 
+            keyboard = VkKeyboard(one_time=False, inline=True)
+
+            keyboard.add_callback_button(
+                label="Расписание на другую дату",
+                color=VkKeyboardColor.SECONDARY,
+                payload={"type": "other_date_timetable", "id": "123"})
+
             self.vk.messages.send(peer_id=peer_id,
-                                  message=MESS_TIMETABLE.substitute(general=''.join(general),
+                                  message=MESS_TIMETABLE.substitute(date=date.strftime('%d.%m.%Y'),
+                                                                    general=''.join(general),
                                                                     with_time=''.join(with_time)),
                                   random_id=get_random_id(),
-                                  keyboard=KB_TIMETABLE_MENU.get_keyboard())
+                                  keyboard=keyboard.get_keyboard())
         else:
             self.vk.messages.send(peer_id=peer_id,
                                   message=MESS_NO_REMINDERS,
                                   random_id=get_random_id(),
                                   keyboard=KB_MAIN_MENU.get_keyboard())
 
-    def drawing_tt(self, peer_id: int, user: dict) -> None:
+    def drawing_tt(self, peer_id: int, date: datetime, user: dict) -> None:
         """
         Прислать фотографию пользователю с его расписанием.
         """
@@ -524,17 +532,26 @@ class BotHandler:
                                   message=MESS_LOADING,
                                   random_id=get_random_id())
 
-            a = self.db.get_author_date_reminders(peer_id, datetime.now())
+            a = self.db.get_author_date_reminders(peer_id, date)
 
             if a != ():
                 a.sort(key=operator.itemgetter('check_date'))
 
-                img = {'photo': ("file.jpeg", draw_timetable(a, user['first_name'] + ' ' + user['last_name']))}
+                img = {'photo': ("file.jpeg", draw_timetable(a, date, user['first_name'] + ' ' + user['last_name']))}
+
+                keyboard = VkKeyboard(one_time=False, inline=True)
+
+                keyboard.add_callback_button(
+                    label="Фото на другую дату",
+                    color=VkKeyboardColor.SECONDARY,
+                    payload={"type": "other_date_painter", "id": "123"})
 
                 self.vk.messages.send(peer_id=peer_id,
-                                      message=MESS_DRAWING_TT.substitute(limit=DRAW_LIMIT),
+                                      message=MESS_DRAWING_TT.substitute(date=date.strftime('%d.%m.%Y'),
+                                                                         limit=DRAW_LIMIT),
                                       attachment=self.upload_photo(peer_id, img),
-                                      random_id=get_random_id())
+                                      random_id=get_random_id(),
+                                      keyboard=keyboard.get_keyboard())
 
                 self.db.add_to_draw_limit(peer_id)
 
@@ -549,6 +566,34 @@ class BotHandler:
                                   message=MESS_DRAW_LIMIT.substitute(limit=DRAW_LIMIT),
                                   random_id=get_random_id(),
                                   keyboard=KB_MAIN_MENU.get_keyboard())
+
+    def other_date_timetable(self, event) -> None:
+        """
+        Прислать сообщение о том, как получить расписание на другую дату.
+        """
+        self.vk.messages.sendMessageEventAnswer(
+            event_id=event["event_id"],
+            user_id=event["user_id"],
+            peer_id=event["peer_id"])
+
+        self.vk.messages.send(peer_id=event["peer_id"],
+                              message=MESS_TIMETABLE_OTHER_DATE,
+                              random_id=get_random_id(),
+                              keyboard=KB_TIMETABLE_MENU.get_keyboard())
+
+    def other_date_painter(self, event) -> None:
+        """
+        Прислать сообщение о том, как получить фото расписания на другую дату.
+        """
+        self.vk.messages.sendMessageEventAnswer(
+            event_id=event["event_id"],
+            user_id=event["user_id"],
+            peer_id=event["peer_id"])
+
+        self.vk.messages.send(peer_id=event["peer_id"],
+                              message=MESS_PAINTER_OTHER_DATE,
+                              random_id=get_random_id(),
+                              keyboard=KB_MAIN_MENU.get_keyboard())
 
     def audio_converter(self, peer_id: int, audio: str) -> str:
         """

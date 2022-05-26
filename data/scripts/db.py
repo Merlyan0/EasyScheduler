@@ -85,7 +85,7 @@ class DataBase:
         if is_done:
             self.cur.execute(f"SELECT * FROM reminders WHERE finished=0 and check_date<=%s and need_notification=1 and "
                              f"done=0",
-                             (date_and_time,))
+                             (date_and_time, ))
 
             return self.cur.fetchall()
 
@@ -156,7 +156,7 @@ class DataBase:
         self.cur.execute('UPDATE reminders SET check_date = %s WHERE id = %s', (update_date, reminder_id))
         self.conn.commit()
 
-        self.cur.execute('UPDATE reminders SET done = 0 WHERE id = %s', (reminder_id,))
+        self.cur.execute('UPDATE reminders SET done = 0 WHERE id = %s', (reminder_id, ))
         self.conn.commit()
 
     def get_reminder(self, reminder_id: int) -> tuple:
@@ -252,7 +252,7 @@ class DataBase:
         """
         self.conn.ping()
 
-        self.cur.execute('UPDATE reminders SET done = 1 WHERE id = %s', (reminder_id,))
+        self.cur.execute('UPDATE reminders SET done = 1 WHERE id = %s', (reminder_id, ))
         self.conn.commit()
 
     def repeat(self, reminder_id: int) -> None:
@@ -261,7 +261,7 @@ class DataBase:
         """
         self.conn.ping()
 
-        self.cur.execute('SELECT * FROM reminders WHERE id = %s', (reminder_id,))
+        self.cur.execute('SELECT * FROM reminders WHERE id = %s', (reminder_id, ))
         reminder = self.cur.fetchone()
         repeat_every = reminder['repeat_every']
         date = reminder['check_date']

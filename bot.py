@@ -2,6 +2,7 @@
 import threading
 import time
 from datetime import datetime
+from data.scripts.functions import get_date_from_message
 
 # VK API
 import vk_api
@@ -18,7 +19,6 @@ from config import *
 
 # безопасный класс для подключения к LongPoll
 from data.scripts.secureLongPoll import SecureVkBotLongPoll
-
 
 # подключение к сервисам API ВКонтакте
 vk_session = vk_api.VkApi(token=TOKEN)
@@ -85,31 +85,31 @@ for event in longpoll.listen():
                 handler.empty_error(peer_id)
 
             # команда главного меню
-            elif message == 'главная' or message == '🔙 главное меню':
+            elif message in {'главная', '🔙 главное меню'}:
                 handler.main_menu(peer_id)
 
             # команда настроек
-            elif message == '⚙ настройки' or message == 'настройки':
+            elif message in {'⚙ настройки', 'настройки'}:
                 handler.settings(peer_id)
 
             # команда помощи
-            elif message == '❓ помощь' or message == 'помощь' or message == 'поддержка':
+            elif message in {'❓ помощь', 'помощь', 'поддержка'}:
                 handler.support_step1(peer_id)
 
             # команда перехода в ручное меню
-            elif message == '📝 ручной режим' or message == 'ручной режим' or message == 'ручной':
+            elif message in {'📝 ручной режим', 'ручной режим', 'ручной'}:
                 handler.manual_mode(peer_id)
 
             # команда ручного создания напоминаний
-            elif message == '📝 создать напоминание' or message == 'создать напоминание' or message == 'создать':
+            elif message in {'📝 создать напоминание', 'создать напоминание', 'создать'}:
                 handler.create_manually_step1(peer_id)
 
             # команда просмотра расписания
-            elif message == '📃 список напоминаний' or message == 'список' or message == 'расписание':
+            elif message in {'📃 список напоминаний', 'список', 'расписание'}:
                 handler.timetable(peer_id, datetime.now())
 
             # команда завершения напоминания
-            elif message == '✅ завершить напоминание' or message == 'завершить' or message == 'завершить напоминание':
+            elif message in {'✅ завершить напоминание', 'завершить', 'завершить напоминание'}:
                 handler.finish_step1(peer_id)
 
             # команда начать: приветствие пользователя
@@ -117,8 +117,26 @@ for event in longpoll.listen():
                 handler.start(peer_id)
 
             # команда отрисовки расписания
-            elif message == '⏏ генерация фото' or message == 'генерация фото' or message == 'генерация':
-                handler.drawing_tt(peer_id, vk.users.get(user_ids=event.object.message["from_id"])[0])
+            elif message in {'⏏ генерация фото', 'генерация фото', 'генерация'}:
+                handler.drawing_tt(peer_id, datetime.now(), vk.users.get(user_ids=event.object.message["from_id"])[0])
+
+            # команда просмотра расписания на определенную дату
+            elif message.startswith('расписание'):
+                try:
+                    date = get_date_from_message(message.split()[1])
+                    handler.timetable(peer_id, date)
+
+                except (BaseException, ):
+                    handler.unknown_error(peer_id)
+
+            # команда отрисовки расписания на определенную дату
+            elif message.startswith('генерация'):
+                try:
+                    date = get_date_from_message(message.split()[1])
+                    handler.drawing_tt(peer_id, date, vk.users.get(user_ids=event.object.message["from_id"])[0])
+
+                except (BaseException, ):
+                    handler.unknown_error(peer_id)
 
             else:
 
@@ -131,7 +149,7 @@ for event in longpoll.listen():
                                                                        conversation_message_ids=conv_mess_id)
                     prev_mess = prev_mess['items'][0]['text']
 
-                except (BaseException, ):
+                except (BaseException,):
                     prev_mess = ''
 
                 # сообщение адресовано в поддержку
@@ -154,12 +172,12 @@ for event in longpoll.listen():
                 else:
                     handler.reminder_analyzer(event)
 
-        except (BaseException, ) as e:
+        except (BaseException,) as e:
             try:
                 print(e)
                 handler.unknown_error(event.object.message["peer_id"])
 
-            except (BaseException, ):
+            except (BaseException,):
                 print('Произошла неизвестная ошибка.')
 
     # нажата кнопка в inline меню
@@ -174,10 +192,18 @@ for event in longpoll.listen():
             elif event.object.payload.get("type") == "set_delayed":
                 handler.set_delayed(event.object, event.object.payload.get("id"))
 
-        except (BaseException, ) as e:
+            # другая дата в расписании
+            elif event.object.payload.get("type") == "other_date_timetable":
+                handler.other_date_timetable(event.object)
+
+            # другая дата в фото
+            elif event.object.payload.get("type") == "other_date_painter":
+                handler.other_date_painter(event.object)
+
+        except (BaseException,) as e:
             try:
                 print(e)
                 handler.unknown_error(event.object.message["peer_id"])
 
-            except (BaseException, ):
+            except (BaseException,):
                 print('Произошла неизвестная ошибка.')
