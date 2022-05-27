@@ -259,7 +259,7 @@ class BotHandler:
         title = ''
         need_notification = True
 
-        a = analyze_string(event.object.message["text"].lower())
+        a = analyze_string(event.object.message["text"])
 
         # DateParser вернул сообщение об ошибке
         if a[0] == 'Ошибка':
